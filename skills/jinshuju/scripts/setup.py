@@ -7,7 +7,7 @@
 
 脚本作用：
 1. 把 API Key / Secret 编码成 Basic 凭证
-2. 打印 / 生成 WorkBuddy MCP 连接配置，方便用户复制
+2. 打印 / 生成 MCP 连接配置片段，方便粘贴到 AI 客户端
 
 用法：
     python3 setup.py                               # 打印配置说明
@@ -69,13 +69,13 @@ def print_setup_instructions() -> None:
     print('         echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64')
     print("         （或运行 `python3 setup.py --encode KEY SECRET`）")
     print()
-    print("第 3 步：在 WorkBuddy 中添加 MCP 连接器。")
+    print("第 3 步：在 AI 客户端（Claude Desktop / Cursor / WorkBuddy 等）中添加 MCP 连接器。")
     print()
     print(f"  名称       ：{MCP_NAME}")
     print(f"  地址 (URL) ：{MCP_URL}")
     print(f"  请求头     ：Authorization: Basic BASE64_ENCODED_CREDENTIALS")
     print()
-    print("或把以下片段粘贴到 WorkBuddy 的 MCP 配置：")
+    print("或把以下片段粘贴到客户端的 MCP 配置：")
     print()
     print(json.dumps(build_snippet(), indent=2, ensure_ascii=False))
     print()
@@ -83,7 +83,7 @@ def print_setup_instructions() -> None:
     print(" 方式 B · OAuth 2.0")
     print("─" * 60)
     print()
-    print("  1. 打开 WorkBuddy 的连接器 / Connectors 管理入口")
+    print("  1. 打开 AI 客户端的连接器 / Connectors 管理入口")
     print("  2. 选择「添加连接器 (Add custom connector)」")
     print(f"  3. Name = {MCP_NAME}，URL = {MCP_URL}")
     print("  4. 点击 Add，弹出金数据登录页，登录并点「允许」")

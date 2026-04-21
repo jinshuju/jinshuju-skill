@@ -235,7 +235,7 @@ MCP 路径下 `MobileField` 会**跳过短信验证码校验**（`*_skip_verific
 
 金数据 MCP 服务端点：**`https://jinshuju.net/mcp`**。
 
-两种认证方式均在客户端（WorkBuddy / Claude Desktop / Cursor 等）的 MCP 配置文件中以下列结构声明，**不要自造字段名**：
+两种认证方式均在支持 MCP 的 AI 客户端（如 Claude Desktop / Cursor / WorkBuddy 等）的 MCP 配置文件中以下列结构声明，**不要自造字段名**：
 
 ### 方式 A · HTTP Basic（API Key/Secret）
 
@@ -287,13 +287,13 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 金数据 MCP 支持两种认证方式，用户在安装时自行选择：
 
 - **HTTP Basic（API Key/Secret）**：配置一次长期有效，适合自动化场景
-- **OAuth 2.0**：在 WorkBuddy 里点击授权即可完成
+- **OAuth 2.0**：在客户端里点击授权即可完成
 
 常见错误：
 
 - **401 / 凭证无效**
-  - 若用户采用 Basic：提示检查 WorkBuddy MCP 配置中的 `Authorization: Basic ...` 请求头；若 Secret 已重置，需重新用 `echo -n "key:secret" | base64` 生成凭证并替换配置
-  - 若用户采用 OAuth：提示到 WorkBuddy 的连接器设置里重新授权金数据
+  - 若用户采用 Basic：提示检查客户端 MCP 配置中的 `Authorization: Basic ...` 请求头；若 Secret 已重置，需重新用 `echo -n "key:secret" | base64` 生成凭证并替换配置
+  - 若用户采用 OAuth：提示到客户端的连接器设置里重新授权金数据
 - **403 权限不足**：该表单可能是协作表单，当前凭证所属账号无编辑权限，建议联系表单所有者
 - **表单不存在**：核对 form_token，并确认当前凭证对应的就是表单所属账号
 - **字段类型受限**：电子签名、富文本、高级逻辑等字段需要对应套餐

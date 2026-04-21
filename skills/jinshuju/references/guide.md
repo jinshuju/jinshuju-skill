@@ -23,12 +23,12 @@
 ### 前置条件
 
 - 已注册**金数据**账号（[jinshuju.net](https://jinshuju.net)），免费版可体验
-- 已安装并登录 **WorkBuddy**
+- 已安装并登录**支持 MCP 的 AI 客户端**（Claude Desktop、Cursor、WorkBuddy 等均可）
 
 金数据 MCP 支持两种认证方式，任选其一：
 
 - **方式 A · API Key/Secret（HTTP Basic Auth）**：配置一次长期有效，适合自动化场景
-- **方式 B · OAuth 2.0**：在 WorkBuddy 里点击授权即可，无需手动管理密钥
+- **方式 B · OAuth 2.0**：在客户端里点击授权即可，无需手动管理密钥
 
 MCP 地址（两种方式相同）：**`https://jinshuju.net/mcp`**
 
@@ -52,7 +52,7 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 
 输出结果（形如 `dXNlcjpwYXNz...`）即下一步要用的 `BASE64_ENCODED_CREDENTIALS`。
 
-#### Step A3 · 在 WorkBuddy 中配置连接器
+#### Step A3 · 在 AI 客户端中配置连接器
 
 连接器信息：
 
@@ -62,7 +62,7 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 | **URL** | `https://jinshuju.net/mcp` |
 | **请求头** | `Authorization: Basic BASE64_ENCODED_CREDENTIALS` |
 
-在 WorkBuddy 的 MCP 配置中粘贴以下片段：
+在客户端的 MCP 配置中粘贴以下片段：
 
 ```json
 {
@@ -83,7 +83,7 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 
 #### Step B1 · 添加金数据连接器
 
-1. 打开 WorkBuddy 的 **连接器 / Connectors** 管理入口
+1. 打开客户端的 **连接器 / Connectors** 管理入口
 2. 选择 **添加连接器（Add custom connector）**
 3. 填写：
    - **Name**：`金数据` 或 `Jinshuju`
@@ -92,12 +92,12 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 
 #### Step B2 · 完成授权
 
-1. WorkBuddy 会弹出金数据登录页
+1. 客户端会弹出金数据登录页
 2. 用账号登录（手机号 / 邮箱 / 扫码均可）
 3. 在授权页点 **允许**
-4. 回到 WorkBuddy 看到连接器状态 ✅ 即完成
+4. 回到客户端看到连接器状态 ✅ 即完成
 
-> OAuth 凭证由 WorkBuddy 托管，token 过期会自动刷新；若长期未使用或账号改密，按 Step B2 重新授权即可。
+> OAuth 凭证由客户端托管，token 过期会自动刷新；若长期未使用或账号改密，按 Step B2 重新授权即可。
 
 ---
 
