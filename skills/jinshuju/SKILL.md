@@ -14,12 +14,12 @@ version: 1.0.0
 
 ### 表单管理
 
-- 列出文件夹：拿到账号下的文件夹（folder）信息(名字和id)，**供 create_form / copy_form 指定归属文件夹**
+- 列出文件夹：拿到账号下的文件夹（folder）信息（名字和 token），**供 create_form / copy_form 指定归属文件夹**
 - 列出表单：`list_forms` 支持 `name`、`next`（id 游标）、`limit`（默认 50），只列当前凭证**名下**的表单
 - 查看表单详情：`get_form` 返回字段结构（含 `api_code` / `type` / `required` / `private`；选项字段带 `choices[].api_code` + `choices[].value`；表格字段带 `dimensions[]`）。调用 entry 类工具前基本都要先 `get_form` 拿 api_code
 - 创建表单：`create_form` 的字段类型**只支持 13 种**（见下面"可创建字段类型"）
 - 复制表单：`copy_form` 基于已有表单创建新表单，继承字段与主题
-- 编辑表单：`edit_form` 支持 `title` / `description` / `add_fields` / `remove_fields` / `update_fields` / `update_choices` / `setting`；**删字段用 `api_code`（不是 label）**，**改选项文案用 `update_choices.update`**（不要 remove+add，否则 api_code 会变、历史引用丢失）
+- 编辑表单：`edit_form` 顶层支持 `name` / `description` / `setting` / `fields`；字段级操作全部放在 `fields` 对象下（`fields.add` / `fields.remove` / `fields.update` / `fields.update_choices`）。**删字段用 `api_code`（不是 label）**，**改选项文案用 `fields.update_choices.update`**（不要 remove+add，否则 api_code 会变、历史引用丢失）
 - 编辑主题：`edit_theme` 可改主色 / 副色 / 背景 / 头图 / 字号 / 按钮样式；**还能用 `generate_header_image` 直接让 AI 根据表单内容生成头图**
 
 > ⚠️ **不支持删除表单**：金数据 MCP **没有提供** `delete_form` 能力。用户若要删除整张表单，需登录金数据后台（jinshuju.net）手动操作。遇到此类请求时，明确告知用户并给出后台路径："表单列表 → 选中目标表单 → 更多 → 删除"，不要尝试用其它工具曲线救国。
@@ -118,7 +118,7 @@ version: 1.0.0
 
 ## 可创建字段类型（create_form / edit_form 白名单）
 
-`create_form` 和 `edit_form.add_fields` 只接受以下 13 种 `type`（严格区分大小写驼峰）：
+`create_form` 和 `edit_form.fields.add` 只接受以下 13 种 `type`（严格区分大小写驼峰）：
 
 ```
 TextField, TextArea, NumberField, EmailField, MobileField, IdCardField, NameField,
@@ -135,7 +135,7 @@ CheckBox, DropDown, DateTimeField, RatingField
 **❌ 不能通过 MCP 新建的字段**（用户让加这些字段，只能引导去后台）：
 
 - `AddressField`（地址）、`PageBreak`（分页）、`AttachmentField`（附件）、`ESignatureField`（电子签）、`FormulaField`（公式）、`CascadeDropDown`（级联下拉）、`FormAssociation`（关联表单）、`LikertField`、`NpsField`、`MatrixField` 等高级字段
-- 这些字段**可以存在于已有表单**（get_form 能看到），但 create_form / add_fields 传它们的 `type` 会被 `validate_field_type!` 400 拒
+- 这些字段**可以存在于已有表单**（get_form 能看到），但 create_form / edit_form.fields.add 传它们的 `type` 会被 `validate_field_type!` 400 拒
 - 同样，`AttachmentField` / `ESignatureField` / `FormulaField` 通过 `create_entry` / `update_entry` **写入也会被忽略**（在 `NOT_SUPPORT_UPDATE_FIELDS` 黑名单里）
 
 ⚠️ 类型名注意：下拉是 **`DropDown`**（不是 `DropdownList` / `Dropdown` / `DropdownField`）
@@ -210,13 +210,13 @@ MCP 路径下 `MobileField` 会**跳过短信验证码校验**（`*_skip_verific
 | 把 entry 的 serial_number 当成 id / token | entry 定位靠 `serial_number`（表单内自增整数），`get_entry` / `update_entry` / `delete_entry` 都传它；`list_entries` 的 `next` 也是 serial_number |
 | 给 `list_entries` 传字段过滤参数       | **MCP 不支持字段过滤 / 排序 / 投影**，只能按 `form_token` + `created_at` 下限拉；字段条件在对话侧本地过滤 |
 | 期待 `list_entries` 按时间倒序         | 默认 **serial_number 升序**，单次最多 50；"最新 N 条"得翻页到尾或本地反转         |
-| `list_forms` 用 folder 过滤 / 时间排序 | 只有 `name`（正则）+ `next` + `limit`；folder_id 是给 `create_form` / `copy_form` 放文件夹用的 |
+| `list_forms` 用 folder 过滤 / 时间排序 | 只有 `name`（正则）+ `next` + `limit`；`folder_token` 是给 `create_form` / `copy_form` 放文件夹用的 |
 | 以为 `update_entry` / `delete_entry` 有批量版本 | 没有 bulk 接口，批量操作一律**逐条循环调用**，每 20 条向用户汇报进度       |
 | 用测试号段（如 `13800138000`）补录手机号 | `MobileField` 号段正则在 MCP 路径下仍跑，保留号段会被 400 拒；用真实在用号段或让用户提供样本 |
 | `TableField` 按"二维数组"传            | 实际是**对象数组**：`[{dimension_api_code: value, ...}, ...]`，每行一个 hash、键是 dimension 的 api_code |
 | 让 MCP 创建 `AddressField` / `PageBreak` / 附件 / 电子签 / 公式 / 级联 / 关联 | 不在 create_form 白名单，引导用户去后台加；已有表单上的这类字段可以读（`AttachmentField` / `ESignatureField` / `FormulaField` 还**不能写**） |
-| `edit_form` 删字段传 label             | `remove_fields` 传的是字段 **api_code** 数组                                      |
-| 改选项文案用 remove + add              | 用 `update_choices.update`（保留 api_code），remove+add 会换 api_code、历史数据引用失效 |
+| `edit_form` 删字段传 label             | `fields.remove` 传的是字段 **api_code** 数组                                      |
+| 改选项文案用 remove + add              | 用 `fields.update_choices.update`（保留 api_code），remove+add 会换 api_code、历史数据引用失效 |
 | 一次性拉几千条数据                     | 单次硬上限 50，分页用 `next` 游标                                                 |
 | 删除操作直接执行                       | 删除前一定要让用户显式确认                                                        |
 | 把手机号 / 邮箱原样输出                | 展示层默认脱敏，除非用户明确要求原文                                              |
@@ -310,9 +310,9 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 - ❌ 不要把 `serial_number` 和 entry token / id 混用——`get_entry` / `update_entry` / `delete_entry` 传的是 **serial_number**（整数）
 - ❌ 不要在未确认的情况下做 update / delete 批量操作
 - ❌ 不要用 `13800138000` / `138001380XX` 这类保留测试号段补录 `MobileField`，号段正则 400 拒
-- ❌ 不要给 `create_form` / `edit_form.add_fields` 传白名单外的 `type`（`AddressField` / `PageBreak` / `AttachmentField` / `ESignatureField` / `FormulaField` / `CascadeDropDown` / `FormAssociation` 等）——引导用户去后台加
+- ❌ 不要给 `create_form` / `edit_form.fields.add` 传白名单外的 `type`（`AddressField` / `PageBreak` / `AttachmentField` / `ESignatureField` / `FormulaField` / `CascadeDropDown` / `FormAssociation` 等）——引导用户去后台加
 - ❌ 不要尝试用 `create_entry` / `update_entry` 写入 `AttachmentField` / `ESignatureField` / `FormulaField`——服务端会忽略
-- ❌ 不要用 `update_choices.remove` + `add` 来改选项文案（会换 api_code、旧数据引用失效）；改名永远用 `update_choices.update`
+- ❌ 不要用 `fields.update_choices.remove` + `add` 来改选项文案（会换 api_code、旧数据引用失效）；改名永远用 `fields.update_choices.update`
 - ❌ 不要把用户数据的手机号 / 身份证 / 邮箱 / 付款金额原样输出到公共上下文
 - ❌ 不要为了"节省一步"跳过 `get_form`，api_code / 选项 api_code 不对会让整次写入白跑
 - ❌ 不要把简单字段（`MobileField` / `NameField` / `IdCardField` / `NumberField` 等）包成 `{"value": "..."}`，直接传字符串 / 数字

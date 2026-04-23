@@ -48,9 +48,9 @@
 
 > 把"2025 年会报名表"复制一份，改名成"2026 年会报名表"，去掉签到字段，新增"是否带家属"（是/否）。
 
-**AI 调用**：`list_forms`（name 正则匹配） → `copy_form` → `get_form`（拿到旧字段的 api_code，确认"签到"字段的 api_code 再 remove） → `edit_form`（`remove_fields: [签到字段.api_code]`，`add_fields: [{type:"RadioButton", label:"是否带家属", choices:[{value:"是"},{value:"否"}]}]`）
+**AI 调用**：`list_forms`（name 正则匹配） → `copy_form` → `get_form`（拿到旧字段的 api_code，确认"签到"字段的 api_code 再 remove） → `edit_form`（`fields: { remove: [签到字段.api_code], add: [{type:"RadioButton", label:"是否带家属", choices:[{value:"是"},{value:"否"}]}] }`）
 
-> ⚠️ `remove_fields` 传的是 api_code 数组，不是 label。
+> ⚠️ `fields.remove` 传的是 api_code 数组，不是 label。
 
 ---
 
@@ -181,9 +181,9 @@
 
 **AI 调用**：
 1. `list_forms`（name 正则匹配到 2025 年会报名表）
-2. `copy_form`（title="2026 年会报名表"）
+2. `copy_form`（name="2026 年会报名表"）
 3. `get_form`（旧表）拿到"签到"和"部门"字段的 api_code
-4. `edit_form`（新表，`remove_fields=[签到.api_code]`）
+4. `edit_form`（新表，`fields={remove: [签到.api_code]}`）
 5. `list_entries`（旧表，按时间范围翻页拉全量）
 6. 对话侧按"部门"api_code 分组聚合、映射回 label 展示
 
