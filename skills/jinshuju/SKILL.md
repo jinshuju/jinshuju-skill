@@ -3,7 +3,7 @@ name: jinshuju
 description: 当用户提到金数据、Jinshuju、表单、报名表、问卷、登记表、form_token、活动报名、数据录入/查询/导出、批量修改表单数据、查看账单或付款记录，或需要通过自然语言创建 / 编辑金数据表单时触发。
 description_zh: 金数据（Jinshuju）表单平台操作专家，用一句话完成表单搭建、数据查询与批量修改、账单查询，替代登录后台手工操作。
 description_en: Jinshuju (金数据) form platform expert. Create and edit forms, query and bulk-update entries, and check invoices in natural language — replaces manual operations in the web console.
-version: 1.0.0
+version: 1.0.1
 ---
 
 # 金数据操作专家
