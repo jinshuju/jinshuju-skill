@@ -3,7 +3,7 @@ name: jinshuju
 description: 当用户提到金数据、Jinshuju、表单、报名表、问卷、登记表、form_token、活动报名、数据录入/查询/导出、批量修改表单数据、查看账单或付款记录，或需要通过自然语言创建 / 编辑金数据表单时触发。
 description_zh: 金数据（Jinshuju）表单平台操作专家，用一句话完成表单搭建、数据查询与批量修改、账单查询，替代登录后台手工操作。
 description_en: Jinshuju (金数据) form platform expert. Create and edit forms, query and bulk-update entries, and check invoices in natural language — replaces manual operations in the web console.
-version: 1.0.1
+version: 1.0.2
 ---
 
 # 金数据操作专家
@@ -17,9 +17,11 @@ version: 1.0.1
 - 列出文件夹：拿到账号下的文件夹（folder）信息（名字和 token），**供 create_form / copy_form 指定归属文件夹**
 - 列出表单：`list_forms` 支持 `name`、`next`（id 游标）、`limit`（默认 50），只列当前凭证**名下**的表单
 - 查看表单详情：`get_form` 返回字段结构（含 `api_code` / `type` / `required` / `private`；选项字段带 `choices[].api_code` + `choices[].value`；表格字段带 `dimensions[]`）。调用 entry 类工具前基本都要先 `get_form` 拿 api_code
-- 创建表单：`create_form` 的字段类型**只支持 13 种**（见下面"可创建字段类型"）
+- 创建表单：`create_form` 的字段类型**只支持 19 种**（见下面"可创建字段类型"）；同一调用可附带 `setting` 一并配置
 - 复制表单：`copy_form` 基于已有表单创建新表单，继承字段与主题
+- 移动表单：`move_form(form_token, folder_token?)` 把表单放进指定文件夹或移回根目录（**省略 / 传空字符串 = 移回根目录**）。先 `list_folders` 拿目标文件夹的 token
 - 编辑表单：`edit_form` 顶层支持 `name` / `description` / `setting` / `fields`；字段级操作全部放在 `fields` 对象下（`fields.add` / `fields.remove` / `fields.update` / `fields.update_choices`）。**删字段用 `api_code`（不是 label）**，**改选项文案用 `fields.update_choices.update`**（不要 remove+add，否则 api_code 会变、历史引用丢失）
+- 编辑表单设置：`edit_form` 的 `setting` 对象支持完整设置面板的 key —— 提交后行为（`entry_submit_mode` / `success_message` / `success_redirect_url` / `show_entry_on_success` / ...）、表单状态（`manually_close_rule` / `by_time_range_close_rule` / `by_entries_close_rule`）、提交限制（`fill_frequency`）、访问策略（`password_required` + `access_password` / `allowed_audience`）、Webhook（`entry_post_url` / `post_new_entry` / `post_updated_entry`）。**只传要改的 key，未传保持原值**
 - 编辑主题：`edit_theme` 可改主色 / 副色 / 背景 / 头图 / 字号 / 按钮样式；**还能用 `generate_header_image` 直接让 AI 根据表单内容生成头图**
 
 > ⚠️ **不支持删除表单**：金数据 MCP **没有提供** `delete_form` 能力。用户若要删除整张表单，需登录金数据后台（jinshuju.net）手动操作。遇到此类请求时，明确告知用户并给出后台路径："表单列表 → 选中目标表单 → 更多 → 删除"，不要尝试用其它工具曲线救国。
@@ -49,6 +51,7 @@ version: 1.0.1
 | 查看表单详情 | `get_form`               |
 | 创建表单     | `create_form`            |
 | 复制表单   | `copy_form`              |
+| 移动表单到文件夹 | `move_form`              |
 | 修改表单     | `edit_form`              |
 | 修改主题     | `edit_theme`             |
 | 列出数据     | `list_entries`           |
@@ -118,27 +121,50 @@ version: 1.0.1
 
 ## 可创建字段类型（create_form / edit_form 白名单）
 
-`create_form` 和 `edit_form.fields.add` 只接受以下 13 种 `type`（严格区分大小写驼峰）：
+`create_form` 和 `edit_form.fields.add` 接受以下 19 种 `type`（严格区分大小写驼峰）：
 
 ```
-TextField, TextArea, NumberField, EmailField, MobileField, IdCardField, NameField,
-RadioButton, CheckBox, DropDown, DateTimeField, RatingField, TableField
+TextField, TextArea, NumberField, EmailField, MobileField, TelephoneField,
+IdCardField, NameField, AddressField, LinkField, GeoField,
+AttachmentField, DateTimeField, RatingField, NpsField,
+RadioButton, CheckBox, DropDown, TableField
 ```
 
-`TableField` 的 `dimensions[].type` 再少一项（不支持嵌套 TableField / RatingField 之外的组合）：
+`TableField` 的 `dimensions[].type` 仅支持 11 种（不可嵌套表格 / Nps / 附件 / 地址等复合字段）：
 
 ```
 TextField, TextArea, NumberField, EmailField, MobileField, IdCardField, NameField,
 CheckBox, DropDown, DateTimeField, RatingField
 ```
 
-**❌ 不能通过 MCP 新建的字段**（用户让加这些字段，只能引导去后台）：
+**❌ 仍然不能通过 MCP 新建的字段**（用户让加这些，只能引导去后台）：
 
-- `AddressField`（地址）、`PageBreak`（分页）、`AttachmentField`（附件）、`ESignatureField`（电子签）、`FormulaField`（公式）、`CascadeDropDown`（级联下拉）、`FormAssociation`（关联表单）、`LikertField`、`NpsField`、`MatrixField` 等高级字段
+- `PageBreak`（分页）、`ESignatureField`（电子签）、`FormulaField`（公式）、`CascadeDropDown`（级联下拉）、`FormAssociation`（关联表单）、`LikertField`（矩阵单选）、`MatrixField`（矩阵填空）、`MatrixScaleField`（矩阵量表）、`MultipleBlanksField`（横向填空）、`SortField`（排序）、`GoodsField`（商品）等高级字段
 - 这些字段**可以存在于已有表单**（get_form 能看到），但 create_form / edit_form.fields.add 传它们的 `type` 会被 `validate_field_type!` 400 拒
-- 同样，`AttachmentField` / `ESignatureField` / `FormulaField` 通过 `create_entry` / `update_entry` **写入也会被忽略**（在 `NOT_SUPPORT_UPDATE_FIELDS` 黑名单里）
+- 写入限制：`ESignatureField` / `FormulaField` 通过 `create_entry` / `update_entry` **写入会被服务端忽略**（在 `NOT_SUPPORT_UPDATE_FIELDS` 黑名单里）。`AttachmentField` 不在黑名单里，但 value 需要先把附件上传到 CDN 拿 attachment_id，MCP 没有提供上传接口，**实际很难写入**——能读不能写
 
 ⚠️ 类型名注意：下拉是 **`DropDown`**（不是 `DropdownList` / `Dropdown` / `DropdownField`）
+
+### 字段特定属性（type-specific extras）
+
+通用属性（`label` / `required` / `private` / `notes` / `choices` / `rating_max` / `dimensions` / `init_row_length`）之外，部分字段类型还接受下列特定属性。**仅对应类型识别**，传给其他类型会被静默忽略；不传则使用默认值。
+
+| 字段类型 | 属性 | 类型 | 说明 |
+| ------ | ------ | ------ | ------ |
+| `TextField` / `TextArea` / `MobileField` / `TelephoneField` / `LinkField` | `predefined_value` | String | 默认预填值 |
+| 同上 | `placeholder` | String | 占位提示 |
+| `EmailField` | `placeholder` | String | 占位提示（无 predefined_value） |
+| `NumberField` | `predefined_value` / `placeholder` | String | 默认值 / 占位 |
+| `NumberField` | `range_min` / `range_max` | Number | 闭区间最小值 / 最大值 |
+| `NumberField` | `precision` | Integer | 小数位数（0–6） |
+| `DateTimeField` | `predefined_value` | String | 与 precision 匹配的日期串，或 `today` / `yesterday` / `tomorrow` |
+| `DateTimeField` | `precision` | String | `year` / `month` / `day`（默认） / `hour` / `minute` / `second` |
+| `AttachmentField` | `max_size` | Number | 单文件最大尺寸（MB） |
+| `AttachmentField` | `max_file_quantity` | Integer | 最多上传文件数（1–15） |
+| `NpsField` | `minimum_ratings_display_text` | String | 最低分文案 |
+| `NpsField` | `maximum_ratings_display_text` | String | 最高分文案 |
+
+> 这些属性同样适用于 `edit_form.fields.update[]`：传哪个改哪个，未传保持原值；传给类型不匹配的字段会被静默忽略。
 
 ## 字段值格式规范
 
@@ -184,7 +210,8 @@ CheckBox, DropDown, DateTimeField, RatingField
 
 ### 写入会被忽略 / 拒绝的字段
 
-- `AttachmentField`（附件）、`ESignatureField`（电子签）、`FormulaField`（公式）—— MCP 路径**不能写入**，即使你传了也会被服务端过滤掉
+- `ESignatureField`（电子签）、`FormulaField`（公式）—— MCP 路径**不能写入**，即使你传了也会被服务端过滤掉
+- `AttachmentField`（附件）—— 不在写入黑名单，但 value 需要 attachment_id（先把文件上传到金数据 CDN 拿到的 id），MCP 没有提供文件上传接口，**实际无法补录附件**；如果只是创建带附件字段的表单结构则没问题
 - 超出字段白名单的未知 key —— 整条会被丢弃；如果整个 payload 都是未知 key，报 `Entry attributes cannot be empty`
 
 > 拿不准时，**先 `get_form` 看字段类型 + api_code + choices**，再按类型选结构。遇到 400 "invalid value"，第一反应检查：(1) 键是不是 api_code 而不是 label；(2) 选项字段是不是传了选项 api_code；(3) 简单字段是不是被多包了对象。
@@ -214,7 +241,8 @@ MCP 路径下 `MobileField` 会**跳过短信验证码校验**（`*_skip_verific
 | 以为 `update_entry` / `delete_entry` 有批量版本 | 没有 bulk 接口，批量操作一律**逐条循环调用**，每 20 条向用户汇报进度       |
 | 用测试号段（如 `13800138000`）补录手机号 | `MobileField` 号段正则在 MCP 路径下仍跑，保留号段会被 400 拒；用真实在用号段或让用户提供样本 |
 | `TableField` 按"二维数组"传            | 实际是**对象数组**：`[{dimension_api_code: value, ...}, ...]`，每行一个 hash、键是 dimension 的 api_code |
-| 让 MCP 创建 `AddressField` / `PageBreak` / 附件 / 电子签 / 公式 / 级联 / 关联 | 不在 create_form 白名单，引导用户去后台加；已有表单上的这类字段可以读（`AttachmentField` / `ESignatureField` / `FormulaField` 还**不能写**） |
+| 让 MCP 创建 `PageBreak` / 电子签 / 公式 / 级联 / 关联 / 矩阵类 | 不在 create_form 白名单，引导用户去后台加；已有表单上的这类字段可以读（`ESignatureField` / `FormulaField` 还**不能写**） |
+| 让 MCP 用 `create_entry` / `update_entry` 写附件 | `AttachmentField` 已可创建（带 `max_size` / `max_file_quantity`），但 entry value 需要 attachment_id；MCP 无文件上传接口，**实际写不进去**；引导用户去前端表单页提交 |
 | `edit_form` 删字段传 label             | `fields.remove` 传的是字段 **api_code** 数组                                      |
 | 改选项文案用 remove + add              | 用 `fields.update_choices.update`（保留 api_code），remove+add 会换 api_code、历史数据引用失效 |
 | 一次性拉几千条数据                     | 单次硬上限 50，分页用 `next` 游标                                                 |
@@ -310,8 +338,8 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 - ❌ 不要把 `serial_number` 和 entry token / id 混用——`get_entry` / `update_entry` / `delete_entry` 传的是 **serial_number**（整数）
 - ❌ 不要在未确认的情况下做 update / delete 批量操作
 - ❌ 不要用 `13800138000` / `138001380XX` 这类保留测试号段补录 `MobileField`，号段正则 400 拒
-- ❌ 不要给 `create_form` / `edit_form.fields.add` 传白名单外的 `type`（`AddressField` / `PageBreak` / `AttachmentField` / `ESignatureField` / `FormulaField` / `CascadeDropDown` / `FormAssociation` 等）——引导用户去后台加
-- ❌ 不要尝试用 `create_entry` / `update_entry` 写入 `AttachmentField` / `ESignatureField` / `FormulaField`——服务端会忽略
+- ❌ 不要给 `create_form` / `edit_form.fields.add` 传白名单外的 `type`（`PageBreak` / `ESignatureField` / `FormulaField` / `CascadeDropDown` / `FormAssociation` / `LikertField` / `MatrixField` / `MatrixScaleField` / `MultipleBlanksField` / `SortField` / `GoodsField` 等）——引导用户去后台加
+- ❌ 不要尝试用 `create_entry` / `update_entry` 写入 `ESignatureField` / `FormulaField`——服务端会忽略；`AttachmentField` 因为缺少文件上传通路也写不进去
 - ❌ 不要用 `fields.update_choices.remove` + `add` 来改选项文案（会换 api_code、旧数据引用失效）；改名永远用 `fields.update_choices.update`
 - ❌ 不要把用户数据的手机号 / 身份证 / 邮箱 / 付款金额原样输出到公共上下文
 - ❌ 不要为了"节省一步"跳过 `get_form`，api_code / 选项 api_code 不对会让整次写入白跑
