@@ -40,7 +40,7 @@
 
 **AI 调用**：`create_form`。NPS 题直接用 `NpsField`（可加 `minimum_ratings_display_text="非常不可能"` / `maximum_ratings_display_text="非常可能"`），原因用 `TextArea`，邮箱用 `EmailField`。也可以用 `RatingField` + `rating_max=10` 模拟 NPS 打分。
 
-> ⚠️ `LikertField`（矩阵单选）/ `MatrixField`（矩阵填空）/ `MatrixScaleField`（矩阵量表）仍**不能创建**，要这类字段引导用户去后台搭。
+> 💡 矩阵类字段（`LikertField` / `MatrixField` / `MatrixScaleField`）现已支持创建，具体属性查 `describe_field_type(type="LikertField")`。
 
 ### 1.3 复制已有表单并改造
 
@@ -63,16 +63,24 @@
 > 查"客户登记表"里本周新增且来自上海的记录，按时间倒序前 20 条，只要姓名、手机号、公司。
 
 **AI 调用**：
-1. `get_form`：拿字段结构，记下"参会城市"字段的 `api_code` 和"上海"选项的 `choices[].api_code`（例如 `city_sh`）
-2. `list_entries(form_token, created_at="<本周起始 ISO 时间>")`：按时间下限拉数据，用 `next`（serial_number 游标）翻页到本周末
-3. 在对话侧：按"参会城市 api_code == city_sh"过滤、按 created_at 倒序、取前 20、投影姓名 / 手机号 / 公司
+1. `get_form`：拿字段结构，记下"参会城市"字段的 `api_code`（如 `field_city`）和"上海"选项的 `choices[].api_code`（如 `city_sh`）
+2. `list_entries` **用 filters 把过滤条件下推到数据库**，省掉拉全量再本地过滤：
+   ```
+   filters=[
+     {"field": "field_city", "operator": "eq", "value": "city_sh"},
+     {"field": "created_at", "operator": "gte", "value": "<本周起始 ISO 时间>"}
+   ]
+   ```
+   服务端按 `created_at` 升序返回，单次 50 条，用 `next` 翻页拿全部命中
+3. 在对话侧只做剩下的：倒序（filters 不支持任意字段倒序）、取前 20、投影姓名 / 手机号 / 公司
 
 **预期输出**：Markdown 表格 + 手机号默认脱敏 + 总匹配数。
 
 > ⚠️ 关键约束：
-> - `list_entries` **不支持字段过滤 / 排序 / 投影 / end_date**，所有"某字段=某值""按时间倒序"都得在对话侧本地做
-> - `created_at` 是单边"晚于此刻"下限（没有 end_date）；单次最多 50 条，超过用 `next` 翻页
-> - 比较选项字段时要用 `choices[].api_code`（如 `city_sh`），而不是 label（"上海"）——entry 里存的是 api_code
+> - 选项字段的 value 传**选项 api_code**（`city_sh`），不是 label（`"上海"`）
+> - `filters` 多条件是 **AND** 关系；operator 跟字段类型不匹配会 400 拒并列出可用 operator
+> - `list_entries` 不支持任意字段排序——倒序、取前 N 仍需本地做
+> - `like` 是子串匹配（不区分大小写），不是 SQL 通配符——传 `"张"` 就行，不要传 `"张%"`
 
 ### 2.2 汇总统计
 
@@ -82,10 +90,14 @@
 
 **AI 调用**：
 1. `get_form` 拿"参会城市"字段及其 `choices[]`（存 api_code → label 的映射用于展示）
-2. `list_entries` 按时间范围翻页拉回全量 entry
+2. `list_entries` 用 filters 把时间范围下推（如果只统计某段时间）：
+   ```
+   filters=[{"field": "created_at", "operator": "gte", "value": "<起始时间>"}]
+   ```
+   翻页拉回需要的范围
 3. 对话侧按城市字段的 api_code 分组计数，输出时把 api_code 映射回 label
 
-（MCP 没有 group by / count 类接口，聚合必须在对话侧做）
+（MCP 没有 group by / count 类聚合接口，聚合必须在对话侧做；但**前置条件能用 filters 收缩就用**——把数据量在数据库这一层先打下来再算）
 
 ### 2.3 查看单条详情
 
@@ -94,9 +106,13 @@
 > 给我"订单登记表"里订单号 ORD-20260417-001 的完整信息。
 
 **AI 调用**：
-1. `get_form` 拿"订单号"字段的 api_code
-2. `list_entries` 翻页拉回候选集（MCP 不支持按字段查）
-3. 对话侧本地匹配订单号，找到后用它的 `serial_number` 调 `get_entry(form_token, serial_number)` 拿完整详情
+1. `get_form` 拿"订单号"字段的 `api_code`（如 `field_order_no`）
+2. `list_entries` **直接用 filters 命中那一条**：
+   ```
+   filters=[{"field": "field_order_no", "operator": "eq", "value": "ORD-20260417-001"}]
+   ```
+   返回数据（通常 0 或 1 条）
+3. 拿到 `serial_number` 后，调 `get_entry(form_token, serial_number)` 拿完整详情（如果 list_entries 返回的 api_value 已经够用，可以省略这步）
 
 > ⚠️ `get_entry` / `update_entry` / `delete_entry` 都靠 **`serial_number`**（整数）定位，不是 token、不是 id。
 
@@ -108,15 +124,22 @@
 
 **Prompt：**
 
-> 把"报名表"里手机号以 138 开头的记录，跟进状态都改成"已联系"。
+> 把"报名表"里手机号以 138 开头、跟进状态还不是"已联系"的记录，跟进状态都改成"已联系"。
 
 **AI 流程**：
 1. `get_form` 拿三样东西：
    - 手机号字段的 `api_code`（如 `field_mobile`）
    - 跟进状态字段的 `api_code`（如 `field_status`）
    - "已联系"选项的 `choices[].api_code`（如 `status_contacted`）
-2. `list_entries` 按 `form_token` + `created_at` 下限拉回候选集，翻页到需要的时间窗
-3. 在对话侧本地过滤出"手机号以 138 开头"的记录，记录它们的 `serial_number`，展示前 10 条 + 总数
+2. `list_entries` **用 filters 直接拉出命中集**，避免拉全量：
+   ```
+   filters=[
+     {"field": "field_mobile", "operator": "like", "value": "138"},
+     {"field": "field_status", "operator": "ne", "value": "status_contacted"}
+   ]
+   ```
+   翻页拿全部命中（`like` 不需要 SQL 通配符；`ne "status_contacted"` 跳过已处理记录避免无效写入）
+3. 展示前 10 条 + 总数
 4. 向用户确认："共 N 条，确认都改为'已联系'？"
 5. 用户确认后**逐条循环**：`update_entry(form_token, serial_number, entry={field_status: "status_contacted"}, is_put=false)`
    - ⚠️ 保持 `is_put=false`（默认 PATCH），**绝不传 `is_put=true`**，否则会把其他字段全部清空
@@ -142,8 +165,12 @@
 > 删掉"测试表单"里所有备注字段包含"test"的记录。
 
 **AI 流程**：
-1. `get_form` 拿"备注"字段的 api_code
-2. `list_entries` 按时间范围翻页拉回候选集，在对话侧本地过滤出"备注字段包含 test"的记录，记录每条 `serial_number`
+1. `get_form` 拿"备注"字段的 api_code（如 `field_notes`）
+2. `list_entries` **用 filters 直接命中**：
+   ```
+   filters=[{"field": "field_notes", "operator": "like", "value": "test"}]
+   ```
+   翻页拿全部命中的 `serial_number`
 3. **必须**得到用户显式"确认删除"回复
 4. >50 条时分批并再次确认
 5. **逐条循环**：`delete_entry(form_token, serial_number)`
@@ -180,14 +207,14 @@
 > 复制"2025 年会报名表"为"2026 年会报名表"，去掉签到字段。同时给我 2025 年会报名表的数据摘要，按部门分组统计人数。
 
 **AI 调用**：
-1. `list_forms`（name 正则匹配到 2025 年会报名表）
+1. `list_forms`（`name` 模糊匹配到 2025 年会报名表）
 2. `copy_form`（name="2026 年会报名表"）
 3. `get_form`（旧表）拿到"签到"和"部门"字段的 api_code
 4. `edit_form`（新表，`fields={remove: [签到.api_code]}`）
-5. `list_entries`（旧表，按时间范围翻页拉全量）
+5. `list_entries`（旧表）—— 如果有时间窗约束，用 `filters` 把范围下推；翻页拉回需要分组的记录
 6. 对话侧按"部门"api_code 分组聚合、映射回 label 展示
 
-（`list_entries` 不支持字段过滤 / 分组，聚合必须在本地做）
+（`list_entries` 不支持 group by，聚合必须在本地做；但**前置条件能用 filters 收窄就用**）
 
 **价值**：一条 prompt 搞定**原来需要 5-8 步操作的流程**，且中间结果可以在对话里随时确认。
 

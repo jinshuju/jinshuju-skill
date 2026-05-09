@@ -1,9 +1,9 @@
 ---
 name: jinshuju
-description: 当用户提到金数据、Jinshuju、表单、报名表、问卷、登记表、form_token、活动报名、数据录入/查询/导出、批量修改表单数据、查看账单或付款记录，或需要通过自然语言创建 / 编辑金数据表单时触发。
-description_zh: 金数据（Jinshuju）表单平台操作专家，用一句话完成表单搭建、数据查询与批量修改、账单查询，替代登录后台手工操作。
-description_en: Jinshuju (金数据) form platform expert. Create and edit forms, query and bulk-update entries, and check invoices in natural language — replaces manual operations in the web console.
-version: 1.0.2
+description: 当用户提到金数据、Jinshuju、表单、报名表、问卷、登记表、form_token、活动报名、数据录入/查询/导出、批量修改表单数据、查看账单或付款记录、查询当前用户/企业账户/团队成员，或需要通过自然语言创建 / 编辑金数据表单时触发。
+description_zh: 金数据（Jinshuju）表单平台操作专家，用一句话完成表单搭建、数据查询与批量修改、账单查询、账户与团队查询，替代登录后台手工操作。
+description_en: Jinshuju (金数据) form platform expert. Create and edit forms, query and bulk-update entries, check invoices, and look up account/team info in natural language — replaces manual operations in the web console.
+version: 1.2.0
 ---
 
 # 金数据操作专家
@@ -30,12 +30,18 @@ version: 1.0.2
 
 > **Entry 的主键是 `serial_number`（整数，表单内自增序号）**。`get_entry` / `update_entry` / `delete_entry` 都靠 `serial_number` 定位单条；`list_entries` 返回的 `next` 游标也是 `serial_number`。
 
-- 列出数据：`list_entries(form_token, next?, created_at?)` —— **参数只有这三个**。`created_at` 是"创建时间**晚于此刻**"的单边下限（**不是**时间范围，没有 end_date），`next` 是 `serial_number` 游标。**单次最多返回 50 条**（`BATCH_LIMIT`），超过要用 `next` 翻页。**不支持字段值过滤 / 排序 / 投影**——字段条件过滤、倒序、取前 N 都得拉回后在本地做。默认按 `serial_number` **升序**返回（想要"最新 N 条"，要么翻到最后一页、要么用 `created_at` 配合本地反转）
+- 列出数据：`list_entries(form_token, next?, created_at?, filters?)` —— `created_at` 是"创建时间**晚于此刻**"的单边下限（**不是**时间范围，没有 end_date），`next` 是 `serial_number` 游标。**单次最多返回 50 条**（`BATCH_LIMIT`），超过要用 `next` 翻页。**支持字段值过滤**：`filters` 接受 scope condition 数组 `[{field, operator, value}]`（详见下方"list_entries filters 用法"），多条件 AND 组合，operator 与字段类型不匹配会 400 拒并列出该字段允许的 operator。**不支持任意字段排序 / 投影**——倒序、取前 N、只要某些列还得拉回后在本地做。默认按 `serial_number` **升序**返回（filters 中含 `created_at` 时改为按 `created_at` 升序）
 - 查看数据详情：`get_entry(form_token, serial_number)` 拿单条 entry 的完整字段值
 - 创建数据：`create_entry(form_token, entry)` —— `entry` 是 `{api_code: value}` 的对象。MCP 路径下会**跳过手机号短信验证**（但号段合法性仍然校验，见下面 MobileField 说明）
 - 更新数据：`update_entry(form_token, serial_number, entry, is_put?)` —— **只支持单条**，批量要先 list_entries 拉出命中记录再**逐条循环调用**
   - ⚠️ **`is_put` 参数强警告**：`is_put=false`（默认）= PATCH，只改提供的字段；`is_put=true` = PUT，**会把未提供的字段全部清空**。做"把某字段改成 X"这种部分更新**永远不要传 `is_put: true`**，否则会把整条记录其他字段洗掉
 - 删除数据：`delete_entry(form_token, serial_number)` —— **只支持单条**，批量同样**逐条循环调用**，**删除前必须二次确认**
+
+### 账户与团队
+
+- 当前用户信息：`get_current_user()` 无参数，返回 `id` / `name` / `email` / `mobile` / `role` / `billing_account_id` / `created_at`。`role` 取值 `owner` / `admin` / `worker` / `outworker`。回答"我是谁"、"我属于哪个企业"、"我在团队里啥角色"时优先调用
+- 当前企业账户：`get_current_billing_account()` 无参数，返回**套餐**（`plan.code` / `plan.name` / `plan.end_date` / `plan.expired`）、**月度用量**（`usage.sms` / `usage.active_mail` / `usage.entry_quota` / `usage.storage_quota`，每项含 `total_quota` / `total_balance` / `month_balance` / `consumed_quota`）、**特性试用**（`feature_trial.in_use` / `expired` / `end_date`）。回答"我的套餐"、"还剩多少额度"、"什么时候到期"时优先调用
+- 列出团队成员：`list_account_users(limit?)` 默认 50 条，最多 100 条；返回 `id` / `name` / `email` / `mobile` / `role` / `status`。**主要用途**：把表单协作给某团队成员前，先列成员表拿目标 `id`（注意：MCP 当前没有 `add_cooperator` 工具，引导用户去后台手动协作）
 
 ### 账单查询
 
@@ -54,11 +60,15 @@ version: 1.0.2
 | 移动表单到文件夹 | `move_form`              |
 | 修改表单     | `edit_form`              |
 | 修改主题     | `edit_theme`             |
+| 查询字段类型用法 | `describe_field_type`    |
 | 列出数据     | `list_entries`           |
 | 查看单条数据详情 | `get_entry`              |
 | 新建数据     | `create_entry`           |
 | 更新数据     | `update_entry`           |
 | 删除数据     | `delete_entry`           |
+| 当前用户信息 | `get_current_user`       |
+| 当前企业账户信息 | `get_current_billing_account` |
+| 列出团队成员 | `list_account_users`     |
 | 列出账单       | `list_invoices`          |
 | 列出付款记录   | `list_payment_histories` |
 
@@ -69,7 +79,7 @@ version: 1.0.2
 ### 原则
 
 1. **先看再动**：对未知表单**必须**先 `get_form` 取字段结构，拿到每个字段的 `api_code`、每个选项的 `choices[].api_code`、表格的 `dimensions[].api_code`。create_entry / update_entry 的 entry 键**一定是 api_code**（如 `field_1`、`field_gender`），**不是中文 label**——传 label 会被服务端当成未知 key 直接丢弃，报"Entry attributes cannot be empty"
-2. **list_entries 不过滤、只分页**：只接受 `form_token` / `next`（serial_number 游标） / `created_at`（"晚于此刻"下限），**单次最多 50 条**、默认 **serial_number 升序**。字段值过滤 / 倒序 / 投影都得在对话侧本地做，**不要传 `filter` / `where` / 字段名参数**
+2. **list_entries 优先用 filters 把过滤下推**：`filters=[{field, operator, value}]` 走数据库索引，比拉全量再本地过滤快几个数量级；operator 跟字段类型不匹配会 400 拒并列出可用 operator（直接照着改）。**仅在 filters 表达不了的场景**（任意字段排序、聚合、复杂正则）才本地处理。**单次最多 50 条**、默认 **serial_number 升序**（filters 含 `created_at` 时改为按 `created_at` 升序）
 3. **先列再改**：批量操作前先 `list_entries` 拉出命中记录展示给用户，**用户确认后**再**逐条循环调用** update_entry / delete_entry（MCP 没有 bulk 接口），每 N 条（建议 20 条）向用户汇报一次进度
 4. **update_entry 默认 PATCH、永不主动开 PUT**：做"只改某字段"的部分更新**永远不要传 `is_put: true`**——PUT 会把未提供的字段全部清空。只有用户明确说"整条替换"且已列清所有字段值时才允许 PUT，且操作前再二次确认
 5. **显式告知范围**：返回结果中写清"匹配到 X 条，已更新 / 已删除 X 条"
@@ -90,10 +100,11 @@ version: 1.0.2
 
 ```
 1. get_form 拿字段结构：记下每个字段的 api_code（如 field_2）、每个选项字段的 choices[].api_code（如 city_sh）
-2. list_entries 按 form_token + created_at 单边下限拉数据，用 next（serial_number）做分页
-   ⚠️ 不要传字段过滤参数（如 filter / where / 字段名），MCP 不支持
-   ⚠️ 单次上限 50 条、默认 serial_number 升序；想要"最新 N 条"必须翻到最后一页或本地反转
-3. 在对话侧做字段值过滤 / 排序 / 投影（比较选项字段时用 api_code 而非 label）
+2. list_entries 用 filters 把字段值条件下推：
+   filters=[{field:"field_city", operator:"eq", value:"city_sh"}, {field:"created_at", operator:"gte", value:"2026-05-01 00:00:00"}]
+   ⚠️ 选项字段的 value 传选项 api_code（city_sh），不是 label（"上海"）
+   ⚠️ 单次上限 50 条、不支持任意字段排序——倒序 / 取前 N 仍需本地处理
+3. 用 next 翻页直到拿全；如果只是要 count 或前 N 条，看条件能否进一步收紧
 4. 以 Markdown 表格展示，表头用 get_form 拿到的 label 翻译，关键字段脱敏
 5. 如需导出，提示用户"要不要我生成一个 CSV artifact"
 ```
@@ -102,8 +113,10 @@ version: 1.0.2
 
 ```
 1. get_form 拿到目标字段的 api_code 和目标选项的 api_code（例如把"跟进状态"改成"已联系"，要的是 status 字段的 api_code + "已联系"选项的 api_code）
-2. list_entries 按时间范围拉回候选集（MCP 不支持字段过滤），记录每条的 serial_number
-3. 在对话侧按条件过滤出命中记录（例如"手机号以 138 开头"），展示前 10 条样本 + 总数
+2. list_entries 用 filters 直接拉出命中集，**不要先拉全量再本地过滤**：
+   filters=[{field:"field_mobile", operator:"like", value:"138"}, {field:"field_status", operator:"ne", value:"status_contacted"}]
+   ⚠️ like 不接受 SQL 通配符，传"138"就够（匹配"138" 子串）；条件里加 ne "已联系" 避免重复操作已处理记录
+3. 翻页拿全部命中的 serial_number，展示前 10 条样本 + 总数
 4. 向用户确认："共 N 条，确认都改为 '已联系'？"
 5. 用户确认后，**逐条循环调用** update_entry(form_token, serial_number, entry={status_api_code: choice_api_code})
 6. 每 20 条向用户汇报一次进度，结束时汇总成功 / 失败条数
@@ -112,7 +125,7 @@ version: 1.0.2
 **④ 批量删除**
 
 ```
-1. 同上先按时间范围 list、再在本地过滤出命中；记录每条的 serial_number
+1. 同上用 filters 把命中集直接拉回（"备注含 test"用 {field:"field_notes", operator:"like", value:"test"}）；翻页记录每条 serial_number
 2. 二次确认，**必须得到用户显式"确认删除"回复**
 3. 如果 >50 条，提示用户分批处理并再次确认
 4. **逐条循环调用** delete_entry(form_token, serial_number)（MCP 没有 bulk 接口）
@@ -121,14 +134,34 @@ version: 1.0.2
 
 ## 可创建字段类型（create_form / edit_form 白名单）
 
-`create_form` 和 `edit_form.fields.add` 接受以下 19 种 `type`（严格区分大小写驼峰）：
+`create_form` 和 `edit_form.fields.add` 接受以下 39 种 `type`（严格区分大小写驼峰）。**拿不准时调 `describe_field_type(type=...)` 拿示例和属性清单**——它专门设计来减少 schema 噪声。
+
+**基础字段（19 种）**：
 
 ```
 TextField, TextArea, NumberField, EmailField, MobileField, TelephoneField,
 IdCardField, NameField, AddressField, LinkField, GeoField,
-AttachmentField, DateTimeField, RatingField, NpsField,
-RadioButton, CheckBox, DropDown, TableField
+AttachmentField, DateTimeField, TimeField, RatingField, NpsField,
+RadioButton, CheckBox, DropDown
 ```
+
+**进阶字段**：
+
+```
+TableField, CascadeDropDown, SortField,
+LikertField, MatrixField, MatrixScaleField,
+ImageRadioButton, ImageCheckBox,
+GoodsField, FormulaField, ReservationField, FormAssociation,
+ESignatureField, AudioField
+```
+
+**装饰 / 控件类**（不收集数据，纯展示 / 跳转）：
+
+```
+StyledText, PageBreak, WidgetButton, WidgetContact, WidgetMap, WidgetMarquee
+```
+
+> 部分字段需要专业版以上套餐（`FormulaField` / `GoodsField` / `FormAssociation` / `ESignatureField` / `WidgetButton` 等），账号套餐不支持时返回 400 并附升级提示——**直接转告用户**，不要静默吞错。
 
 `TableField` 的 `dimensions[].type` 仅支持 11 种（不可嵌套表格 / Nps / 附件 / 地址等复合字段）：
 
@@ -137,13 +170,14 @@ TextField, TextArea, NumberField, EmailField, MobileField, IdCardField, NameFiel
 CheckBox, DropDown, DateTimeField, RatingField
 ```
 
-**❌ 仍然不能通过 MCP 新建的字段**（用户让加这些，只能引导去后台）：
+**❌ 仍然不能通过 MCP 新建的字段**：
 
-- `PageBreak`（分页）、`ESignatureField`（电子签）、`FormulaField`（公式）、`CascadeDropDown`（级联下拉）、`FormAssociation`（关联表单）、`LikertField`（矩阵单选）、`MatrixField`（矩阵填空）、`MatrixScaleField`（矩阵量表）、`MultipleBlanksField`（横向填空）、`SortField`（排序）、`GoodsField`（商品）等高级字段
-- 这些字段**可以存在于已有表单**（get_form 能看到），但 create_form / edit_form.fields.add 传它们的 `type` 会被 `validate_field_type!` 400 拒
-- 写入限制：`ESignatureField` / `FormulaField` 通过 `create_entry` / `update_entry` **写入会被服务端忽略**（在 `NOT_SUPPORT_UPDATE_FIELDS` 黑名单里）。`AttachmentField` 不在黑名单里，但 value 需要先把附件上传到 CDN 拿 attachment_id，MCP 没有提供上传接口，**实际很难写入**——能读不能写
+- `MultipleBlanksField`（横向填空）—— 通常嵌入到 MatrixField 里，独立使用场景少
+- 写入限制：`ESignatureField` / `FormulaField` 通过 `create_entry` / `update_entry` **写入会被服务端忽略**（在 `NOT_SUPPORT_UPDATE_FIELDS` 黑名单里）——能创建字段但补录数据无效。`AttachmentField` 不在写入黑名单，但 value 需要先把附件上传到 CDN 拿 attachment_id，MCP 没有提供上传接口，**实际很难写入**——能读不能写
 
 ⚠️ 类型名注意：下拉是 **`DropDown`**（不是 `DropdownList` / `Dropdown` / `DropdownField`）
+
+⚠️ `PageBreak` 用法：nextfe 的分页约定是"**N 个 PageBreak 给 N 页**"，第一个 PageBreak 必须是 `position: 0`（最顶部）。漏第一个会导致整张表单只有一页。
 
 ### 字段特定属性（type-specific extras）
 
@@ -163,8 +197,23 @@ CheckBox, DropDown, DateTimeField, RatingField
 | `AttachmentField` | `max_file_quantity` | Integer | 最多上传文件数（1–15） |
 | `NpsField` | `minimum_ratings_display_text` | String | 最低分文案 |
 | `NpsField` | `maximum_ratings_display_text` | String | 最高分文案 |
+| `AddressField` | `predefined_value` / `changeable` / `enable_auto_position` | - | 默认地址 / 是否允许填写时修改 / 是否自动定位 |
+| `AttachmentField` | `media_type` / `mobile_camera_only` | - | 文件类型限制 / 移动端是否仅允许拍照 |
+| `TimeField` | `predefined_value` / `include_second` | - | 默认值 / 是否精确到秒 |
+| `SortField` | `random_choices` | Bool | 选项随机展示 |
+| `AudioField` | `max_duration` | Number | 最大录音时长（秒） |
+| `CascadeDropDown` | `levels` / `choice_filterable` / `random_choices` | - | 级联层数 / 是否可搜索 / 选项随机 |
+| `LikertField` / `MatrixField` / `MatrixScaleField` | `horizontal_on_mobile` 等 | - | 见 `describe_field_type` |
+| `GoodsField` | `unit` / `collapse_on_mobile` / `columns_on_mobile` | - | 单位 / 移动端折叠 / 移动端列数 |
+| `FormulaField` | `formula_display` 等 | - | 公式表达式 + 结果展示控制 |
+| `ReservationField` | `allow_multiple_items` / `item_allow_multiple_reservations` 等 | - | 多时段 / 多人预约 |
+| `FormAssociation` | `associated_form_token` / `associated_field_api_codes` 等 | - | 见 `describe_field_type`，详细约束见下文 |
+| `PageBreak` | `disable_previous_page` / `previous_page_text` / `next_page_text` | - | 翻页控制 |
+| `WidgetButton` / `WidgetContact` / `WidgetMap` / `WidgetMarquee` | 见 `describe_field_type` | - | 装饰控件类的具体属性 |
 
 > 这些属性同样适用于 `edit_form.fields.update[]`：传哪个改哪个，未传保持原值；传给类型不匹配的字段会被静默忽略。
+>
+> ⚡ **不确定某字段类型的完整属性时，调 `describe_field_type(type="GoodsField")`**——返回 summary、common attrs、type-specific attrs、example 和 note，比硬记表格高效。
 
 ## 字段值格式规范
 
@@ -216,6 +265,63 @@ CheckBox, DropDown, DateTimeField, RatingField
 
 > 拿不准时，**先 `get_form` 看字段类型 + api_code + choices**，再按类型选结构。遇到 400 "invalid value"，第一反应检查：(1) 键是不是 api_code 而不是 label；(2) 选项字段是不是传了选项 api_code；(3) 简单字段是不是被多包了对象。
 
+### list_entries filters 用法
+
+`list_entries` 的 `filters` 参数把字段值条件下推到数据库查询，**比拉全量再本地过滤快几个数量级**。每个元素是 `{field, operator, value}`，多条件 AND 组合。
+
+**operator 速查**：
+
+| 类别 | operator | value 形式 | 示例 |
+| ---- | -------- | ---------- | ---- |
+| 等值 | `eq` / `ne` | 标量 | `{"field":"field_1","operator":"eq","value":"张三"}` |
+| 比较 | `gt` / `gte` / `lt` / `lte` | 标量 | `{"field":"field_3","operator":"gte","value":6}` |
+| 区间 | `between` / `not_between` | 2 元素数组 `[min, max]`（闭区间） | `{"field":"field_3","operator":"between","value":[80,100]}` |
+| 集合 | `any_in` / `none_in` | 数组 | `{"field":"field_2","operator":"any_in","value":["北京","上海"]}` |
+| 文本子串 | `like` / `not_like` | **不带 SQL 通配符**的子串（不区分大小写） | `{"field":"field_2","operator":"like","value":"张"}` 匹配"张三""小张" |
+| 是否为空 | `null` / `not_null` | 省略 | `{"field":"field_4","operator":"not_null"}` |
+
+> ⚠️ `like` **不接受 SQL 风格通配符**——传 `"张%"` 或 `"%张%"` 服务端会按字面 `%` 匹配，**永远查不到**。要"包含张"，直接传 `"张"`。
+
+**operator × 字段类型的兼容性**（错配会 400）：
+
+| 字段类型 | 可用 operator |
+| -------- | ------------- |
+| 文本类（TextField / NameField / EmailField / MobileField / TelephoneField / IdCardField / LinkField / TextArea） | `eq` `ne` `any_in` `none_in` `null` `not_null` `like` `not_like` |
+| `NumberField` | `eq` `ne` `null` `not_null` `gte` `gt` `lte` `lt` `between` `not_between` |
+| `DateTimeField` / `DateField` / 系统字段 `created_at` | `eq` `ne` `null` `not_null` `like` `gte` `gt` `lte` `lt` `between` `not_between` |
+| `RatingField` / `NpsField` | `eq` `ne` `null` `not_null` `gte` `gt` `lte` `lt` |
+| `RadioButton` / `CheckBox` / `DropDown` | `eq` `ne` `any_in` `none_in` `null` `not_null` `like` `not_like` |
+| `FormAssociation` | `eq` `ne` `any_in` `none_in` `null` `not_null` |
+| `AttachmentField` / `GeoField` / `TableField` | `null` `not_null` `like` |
+| `ESignatureField` | `null` `not_null` |
+
+**关键约束**：
+
+1. **选项字段的 value 传 `choices[].api_code`**（如 `city_sh`），不是 label（"上海"）——entry 里存的就是 api_code。先 `get_form` 拿映射
+2. **`created_at` 是合法 trigger**：`{"field":"created_at","operator":"gte","value":"2026-04-20 00:00:00"}` 直接走数据库的 `created_at` 索引，比 `created_at=` 参数更灵活（支持 lt / between）
+3. **filters 中带 `created_at` 时**，结果自动按 `created_at` 升序；否则按 `serial_number` 升序
+4. **不支持任意字段排序**——倒序 / 取前 N 还得本地做
+5. **空数组 / null / 非法 JSON** 静默忽略，等价于不传
+
+**典型调用**：
+
+```
+list_entries(
+  form_token="abc",
+  filters=[
+    {"field": "field_1", "operator": "any_in", "value": ["lead_status_open", "lead_status_doing"]},
+    {"field": "field_3", "operator": "gte", "value": 80},
+    {"field": "created_at", "operator": "gte", "value": "2026-05-01 00:00:00"}
+  ]
+)
+```
+
+错配的 400 响应会直接列出该字段的可用 operator，**直接照着改**：
+
+```
+{"error_description": "Operator 'gte' not supported for field 'field_1' (NameField). Allowed operators: eq, ne, any_in, none_in, null, not_null, like, not_like."}
+```
+
 ### MobileField 号段校验
 
 MCP 路径下 `MobileField` 会**跳过短信验证码校验**（`*_skip_verification=true`），但底层的**号段合法性**正则仍然跑。常见雷区：
@@ -235,13 +341,15 @@ MCP 路径下 `MobileField` 会**跳过短信验证码校验**（`*_skip_verific
 | 选项字段 value 传 label（如 `"男"`）   | 选项字段传**选项的 `api_code`**（`get_form` → `choices[].api_code`，如 `code_male`），label 会被拒为 invalid choice |
 | `update_entry` 误开 `is_put=true` 做部分更新 | 部分更新**一律 `is_put=false`**（默认）。PUT 会把未提供字段清空，只有"整条覆盖"且已列全所有字段才可用 |
 | 把 entry 的 serial_number 当成 id / token | entry 定位靠 `serial_number`（表单内自增整数），`get_entry` / `update_entry` / `delete_entry` 都传它；`list_entries` 的 `next` 也是 serial_number |
-| 给 `list_entries` 传字段过滤参数       | **MCP 不支持字段过滤 / 排序 / 投影**，只能按 `form_token` + `created_at` 下限拉；字段条件在对话侧本地过滤 |
-| 期待 `list_entries` 按时间倒序         | 默认 **serial_number 升序**，单次最多 50；"最新 N 条"得翻页到尾或本地反转         |
+| 给 `list_entries` 传 SQL like 通配符（`"张%"` / `"%张%"`）| `like` 是子串匹配（不区分大小写），**直接传"张"** 就匹配"张三""小张"；带 % 反而查不到 |
+| 给 `list_entries.filters` 选项字段传 label | 选项字段的 value 跟 entry 一致，传**选项 api_code**（如 `city_sh`），不是 "上海" |
+| 用 like 在 NumberField 上 / 用 gte 在文本字段上 | operator 跟字段类型不匹配会 400 拒；错误信息直接列出该字段的可用 operator，照着改即可 |
+| 期待 `list_entries` 按任意字段倒序     | 不支持任意字段排序：默认 **serial_number 升序**；filters 中含 `created_at` 时改为按 `created_at` 升序；"最新 N 条"先用 filters 缩范围 + 翻页到末尾或本地反转 |
 | `list_forms` 用 folder 过滤 / 时间排序 | 只有 `name`（正则）+ `next` + `limit`；`folder_token` 是给 `create_form` / `copy_form` 放文件夹用的 |
 | 以为 `update_entry` / `delete_entry` 有批量版本 | 没有 bulk 接口，批量操作一律**逐条循环调用**，每 20 条向用户汇报进度       |
 | 用测试号段（如 `13800138000`）补录手机号 | `MobileField` 号段正则在 MCP 路径下仍跑，保留号段会被 400 拒；用真实在用号段或让用户提供样本 |
 | `TableField` 按"二维数组"传            | 实际是**对象数组**：`[{dimension_api_code: value, ...}, ...]`，每行一个 hash、键是 dimension 的 api_code |
-| 让 MCP 创建 `PageBreak` / 电子签 / 公式 / 级联 / 关联 / 矩阵类 | 不在 create_form 白名单，引导用户去后台加；已有表单上的这类字段可以读（`ESignatureField` / `FormulaField` 还**不能写**） |
+| 以为高级字段不能用 MCP 创建            | 现已支持 39 种字段，包含 `PageBreak` / 电子签 / 公式 / 级联 / 关联表单 / 矩阵 / 商品 / 预约 等；只剩 `MultipleBlanksField` 单独不在白名单。具体属性查 `describe_field_type`；`ESignatureField` / `FormulaField` 仍**不能通过 create_entry/update_entry 补录数据** |
 | 让 MCP 用 `create_entry` / `update_entry` 写附件 | `AttachmentField` 已可创建（带 `max_size` / `max_file_quantity`），但 entry value 需要 attachment_id；MCP 无文件上传接口，**实际写不进去**；引导用户去前端表单页提交 |
 | `edit_form` 删字段传 label             | `fields.remove` 传的是字段 **api_code** 数组                                      |
 | 改选项文案用 remove + add              | 用 `fields.update_choices.update`（保留 api_code），remove+add 会换 api_code、历史数据引用失效 |
@@ -333,12 +441,13 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 - ❌ 不要给选项字段传 label 值（如 `"男"` / `"上海"`）——`RadioButton` / `CheckBox` / `DropDown` 传**选项的 `api_code`**
 - ❌ 不要把 `TableField` 按二维数组或按列顺序的字符串矩阵传——它是**对象数组**：`[{dimension_api_code: value, ...}, ...]`
 - ❌ 不要在部分更新里传 `is_put: true`——PUT 会把未提供的字段全部清空。默认保持 `is_put=false`（PATCH）
-- ❌ 不要给 `list_entries` 传 `filter` / `where` / 字段名 / 字段值——**MCP 只接受 `form_token` + `next` + `created_at`**（单边"晚于"下限），单次最多 50 条，字段条件过滤在拉回后本地做
+- ❌ 不要给 `list_entries` 用 SQL like 通配符（`"%张%"` / `"张_"`）—— 服务端按字面匹配 `%` `_`，永远查不到；想要"包含张"直接传 `"张"`
+- ❌ 不要在拉数据时跳过 `filters` 直接拉全量再本地过滤——能用 filters 表达就用，比本地循环快几个数量级；只有任意字段排序、聚合等 filters 表达不了的才本地处理
 - ❌ 不要以为 `update_entry` / `delete_entry` 有 bulk 版本去找——**只支持单条**，批量一律逐条循环调用
 - ❌ 不要把 `serial_number` 和 entry token / id 混用——`get_entry` / `update_entry` / `delete_entry` 传的是 **serial_number**（整数）
 - ❌ 不要在未确认的情况下做 update / delete 批量操作
 - ❌ 不要用 `13800138000` / `138001380XX` 这类保留测试号段补录 `MobileField`，号段正则 400 拒
-- ❌ 不要给 `create_form` / `edit_form.fields.add` 传白名单外的 `type`（`PageBreak` / `ESignatureField` / `FormulaField` / `CascadeDropDown` / `FormAssociation` / `LikertField` / `MatrixField` / `MatrixScaleField` / `MultipleBlanksField` / `SortField` / `GoodsField` 等）——引导用户去后台加
+- ❌ 不要假设"高级字段不能用 MCP 创建"——现已支持 39 种含 `PageBreak` / 电子签 / 公式 / 级联 / 关联 / 矩阵 / 商品 / 预约。**仅 `MultipleBlanksField`（横向填空）单独不在白名单**。具体属性请查 `describe_field_type`
 - ❌ 不要尝试用 `create_entry` / `update_entry` 写入 `ESignatureField` / `FormulaField`——服务端会忽略；`AttachmentField` 因为缺少文件上传通路也写不进去
 - ❌ 不要用 `fields.update_choices.remove` + `add` 来改选项文案（会换 api_code、旧数据引用失效）；改名永远用 `fields.update_choices.update`
 - ❌ 不要把用户数据的手机号 / 身份证 / 邮箱 / 付款金额原样输出到公共上下文
