@@ -134,7 +134,7 @@ version: 1.2.0
 
 ## 可创建字段类型（create_form / edit_form 白名单）
 
-`create_form` 和 `edit_form.fields.add` 接受以下 39 种 `type`（严格区分大小写驼峰）。**拿不准时调 `describe_field_type(type=...)` 拿示例和属性清单**——它专门设计来减少 schema 噪声。
+`create_form` 和 `edit_form.fields.add` 接受以下 38 种 `type`（严格区分大小写驼峰）。**拿不准时调 `describe_field_type(type=...)` 拿示例和属性清单**——它专门设计来减少 schema 噪声。
 
 **基础字段（19 种）**：
 
@@ -158,7 +158,7 @@ ESignatureField, AudioField
 **装饰 / 控件类**（不收集数据，纯展示 / 跳转）：
 
 ```
-StyledText, PageBreak, WidgetButton, WidgetContact, WidgetMap, WidgetMarquee
+PageBreak, WidgetButton, WidgetContact, WidgetMap, WidgetMarquee
 ```
 
 > 部分字段需要专业版以上套餐（`FormulaField` / `GoodsField` / `FormAssociation` / `ESignatureField` / `WidgetButton` 等），账号套餐不支持时返回 400 并附升级提示——**直接转告用户**，不要静默吞错。
@@ -172,6 +172,8 @@ CheckBox, DropDown, DateTimeField, RatingField
 
 **❌ 仍然不能通过 MCP 新建的字段**：
 
+- `StyledText`（说明文字）—— 不在白名单里
+- `SectionBreak`（描述字段）—— 不在白名单里
 - `MultipleBlanksField`（横向填空）—— 通常嵌入到 MatrixField 里，独立使用场景少
 - 写入限制：`ESignatureField` / `FormulaField` 通过 `create_entry` / `update_entry` **写入会被服务端忽略**（在 `NOT_SUPPORT_UPDATE_FIELDS` 黑名单里）——能创建字段但补录数据无效。`AttachmentField` 不在写入黑名单，但 value 需要先把附件上传到 CDN 拿 attachment_id，MCP 没有提供上传接口，**实际很难写入**——能读不能写
 
@@ -349,7 +351,7 @@ MCP 路径下 `MobileField` 会**跳过短信验证码校验**（`*_skip_verific
 | 以为 `update_entry` / `delete_entry` 有批量版本 | 没有 bulk 接口，批量操作一律**逐条循环调用**，每 20 条向用户汇报进度       |
 | 用测试号段（如 `13800138000`）补录手机号 | `MobileField` 号段正则在 MCP 路径下仍跑，保留号段会被 400 拒；用真实在用号段或让用户提供样本 |
 | `TableField` 按"二维数组"传            | 实际是**对象数组**：`[{dimension_api_code: value, ...}, ...]`，每行一个 hash、键是 dimension 的 api_code |
-| 以为高级字段不能用 MCP 创建            | 现已支持 39 种字段，包含 `PageBreak` / 电子签 / 公式 / 级联 / 关联表单 / 矩阵 / 商品 / 预约 等；只剩 `MultipleBlanksField` 单独不在白名单。具体属性查 `describe_field_type`；`ESignatureField` / `FormulaField` 仍**不能通过 create_entry/update_entry 补录数据** |
+| 以为高级字段不能用 MCP 创建            | 现已支持 38 种字段，包含 `PageBreak` / 电子签 / 公式 / 级联 / 关联表单 / 矩阵 / 商品 / 预约 等；`StyledText`（说明文字）/ `SectionBreak`（描述字段）/ `MultipleBlanksField` 不在白名单。具体属性查 `describe_field_type`；`ESignatureField` / `FormulaField` 仍**不能通过 create_entry/update_entry 补录数据** |
 | 让 MCP 用 `create_entry` / `update_entry` 写附件 | `AttachmentField` 已可创建（带 `max_size` / `max_file_quantity`），但 entry value 需要 attachment_id；MCP 无文件上传接口，**实际写不进去**；引导用户去前端表单页提交 |
 | `edit_form` 删字段传 label             | `fields.remove` 传的是字段 **api_code** 数组                                      |
 | 改选项文案用 remove + add              | 用 `fields.update_choices.update`（保留 api_code），remove+add 会换 api_code、历史数据引用失效 |
@@ -447,7 +449,7 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 - ❌ 不要把 `serial_number` 和 entry token / id 混用——`get_entry` / `update_entry` / `delete_entry` 传的是 **serial_number**（整数）
 - ❌ 不要在未确认的情况下做 update / delete 批量操作
 - ❌ 不要用 `13800138000` / `138001380XX` 这类保留测试号段补录 `MobileField`，号段正则 400 拒
-- ❌ 不要假设"高级字段不能用 MCP 创建"——现已支持 39 种含 `PageBreak` / 电子签 / 公式 / 级联 / 关联 / 矩阵 / 商品 / 预约。**仅 `MultipleBlanksField`（横向填空）单独不在白名单**。具体属性请查 `describe_field_type`
+- ❌ 不要假设"高级字段不能用 MCP 创建"——现已支持 38 种含 `PageBreak` / 电子签 / 公式 / 级联 / 关联 / 矩阵 / 商品 / 预约。**`StyledText`（说明文字）/ `SectionBreak`（描述字段）/ `MultipleBlanksField`（横向填空）不在白名单**。具体属性请查 `describe_field_type`
 - ❌ 不要尝试用 `create_entry` / `update_entry` 写入 `ESignatureField` / `FormulaField`——服务端会忽略；`AttachmentField` 因为缺少文件上传通路也写不进去
 - ❌ 不要用 `fields.update_choices.remove` + `add` 来改选项文案（会换 api_code、旧数据引用失效）；改名永远用 `fields.update_choices.update`
 - ❌ 不要把用户数据的手机号 / 身份证 / 邮箱 / 付款金额原样输出到公共上下文
