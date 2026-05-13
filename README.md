@@ -37,6 +37,8 @@
 
 **方式 A · HTTP Basic（API Key/Secret）**
 
+API Key/Secret 的获取路径：金数据主页右上角个人头像 -> 个人中心 -> API
+
 ```bash
 python3 skills/jinshuju/scripts/setup.py --print-json YOUR_API_KEY YOUR_API_SECRET
 ```
