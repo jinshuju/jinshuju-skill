@@ -3,7 +3,7 @@ name: jinshuju
 description: 当用户提到金数据、Jinshuju、表单、报名表、问卷、登记表、form_token、活动报名、数据录入/查询/导出、批量修改表单数据、查看账单或付款记录、查询当前用户/企业账户/团队成员，或需要通过自然语言创建 / 编辑金数据表单时触发。
 description_zh: 金数据（Jinshuju）表单平台操作专家，用一句话完成表单搭建、数据查询与批量修改、账单查询、账户与团队查询，替代登录后台手工操作。
 description_en: Jinshuju (金数据) form platform expert. Create and edit forms, query and bulk-update entries, check invoices, and look up account/team info in natural language — replaces manual operations in the web console.
-version: 1.2.1
+version: 1.3.0
 ---
 
 # 金数据操作专家
@@ -17,12 +17,12 @@ version: 1.2.1
 - 列出文件夹：拿到账号下的文件夹（folder）信息（名字和 token），**供 create_form / copy_form 指定归属文件夹**
 - 列出表单：`list_forms` 支持 `name`、`next`（id 游标）、`limit`（默认 50），只列当前凭证**名下**的表单
 - 查看表单详情：`get_form` 返回字段结构（含 `api_code` / `type` / `required` / `private`；选项字段带 `choices[].api_code` + `choices[].value`；表格字段带 `dimensions[]`）。调用 entry 类工具前基本都要先 `get_form` 拿 api_code
-- 创建表单：`create_form` 的字段类型**只支持 19 种**（见下面"可创建字段类型"）；同一调用可附带 `setting` 一并配置
+- 创建表单：`create_form` 的字段类型**目前支持 39 种**（见下面"可创建字段类型"）；同一调用可附带 `setting` 一并配置
 - 复制表单：`copy_form` 基于已有表单创建新表单，继承字段与主题
 - 移动表单：`move_form(form_token, folder_token?)` 把表单放进指定文件夹或移回根目录（**省略 / 传空字符串 = 移回根目录**）。先 `list_folders` 拿目标文件夹的 token
 - 编辑表单：`edit_form` 顶层支持 `name` / `description` / `setting` / `fields`；字段级操作全部放在 `fields` 对象下（`fields.add` / `fields.remove` / `fields.update` / `fields.update_choices`）。**删字段用 `api_code`（不是 label）**，**改选项文案用 `fields.update_choices.update`**（不要 remove+add，否则 api_code 会变、历史引用丢失）
-- 编辑表单设置：`edit_form` 的 `setting` 对象支持完整设置面板的 key —— 提交后行为（`entry_submit_mode` / `success_message` / `success_redirect_url` / `show_entry_on_success` / ...）、表单状态（`manually_close_rule` / `by_time_range_close_rule` / `by_entries_close_rule`）、提交限制（`fill_frequency`）、访问策略（`password_required` + `access_password` / `allowed_audience`）、Webhook（`entry_post_url` / `post_new_entry` / `post_updated_entry`）。**只传要改的 key，未传保持原值**
-- 编辑主题：`edit_theme` 可改主色 / 副色 / 背景 / 头图 / 字号 / 按钮样式；**还能用 `generate_header_image` 直接让 AI 根据表单内容生成头图**
+- 编辑表单设置：`edit_form` 的 `setting` 对象支持完整设置面板的 key —— 提交后行为（`entry_submit_mode` / `success_message` / `success_message_rich_text` / `success_message_style` / `success_redirect_url` / `success_redirect_fields` / `show_serial_number_on_success` / `show_submit_again` / `open_entry_action` / `open_entry_message`）、表单状态（`manually_close_rule` / `by_time_range_close_rule` / `by_entries_close_rule` / `show_close_count_down` / `show_form_before_open`）、提交限制（`fill_frequency`）、访问策略（`password_required` + `access_password` / `allowed_audience`）、通知规则（`notification_rules`：approach=`WXWORK` / `DING_TALK` / `WEBHOOK`）。**只传要改的 key，未传保持原值**
+- 编辑主题：`edit_theme` 可改主色 / 副色 / 背景 / 头图 / 字号 / 按钮样式；**还能用 `generate_header_image` 直接让 AI 根据表单内容生成头图**。⚠️ OAuth 授权时这个工具走独立的 `form_setting` scope（不是 `forms`），授权范围里要勾上
 
 > ⚠️ **不支持删除表单**：金数据 MCP **没有提供** `delete_form` 能力。用户若要删除整张表单，需登录金数据后台（jinshuju.net）手动操作。遇到此类请求时，明确告知用户并给出后台路径："表单列表 → 选中目标表单 → 更多 → 删除"，不要尝试用其它工具曲线救国。
 
@@ -60,7 +60,6 @@ version: 1.2.1
 | 移动表单到文件夹 | `move_form`              |
 | 修改表单     | `edit_form`              |
 | 修改主题     | `edit_theme`             |
-| 查询字段类型用法 | `describe_field_type`    |
 | 列出数据     | `list_entries`           |
 | 查看单条数据详情 | `get_entry`              |
 | 新建数据     | `create_entry`           |
@@ -134,7 +133,7 @@ version: 1.2.1
 
 ## 可创建字段类型（create_form / edit_form 白名单）
 
-`create_form` 和 `edit_form.fields.add` 接受以下 38 种 `type`（严格区分大小写驼峰）。**拿不准时调 `describe_field_type(type=...)` 拿示例和属性清单**——它专门设计来减少 schema 噪声。
+`create_form` 和 `edit_form.fields.add` 接受以下 39 种 `type`（严格区分大小写驼峰）。每种字段的详细属性、示例、注意事项见 [`references/tools.md`](references/tools.md) 的 create_form 章节。
 
 **基础字段（19 种）**：
 
@@ -158,7 +157,7 @@ ESignatureField, AudioField
 **装饰 / 控件类**（不收集数据，纯展示 / 跳转）：
 
 ```
-PageBreak, WidgetButton, WidgetContact, WidgetMap, WidgetMarquee
+SectionBreak, PageBreak, WidgetButton, WidgetContact, WidgetMap, WidgetMarquee
 ```
 
 > 部分字段需要专业版以上套餐（`FormulaField` / `GoodsField` / `FormAssociation` / `ESignatureField` / `WidgetButton` 等），账号套餐不支持时返回 400 并附升级提示——**直接转告用户**，不要静默吞错。
@@ -172,8 +171,7 @@ CheckBox, DropDown, DateTimeField, RatingField
 
 **❌ 仍然不能通过 MCP 新建的字段**：
 
-- `StyledText`（说明文字）—— 不在白名单里
-- `SectionBreak`（描述字段）—— 不在白名单里
+- `StyledText`（说明文字 / 老版样式块）—— 不在白名单里；存量表单的 StyledText 字段照常显示，但 MCP 不支持新建。新增"图文说明"请用 `SectionBreak`
 - `MultipleBlanksField`（横向填空）—— 通常嵌入到 MatrixField 里，独立使用场景少
 - 写入限制：`ESignatureField` / `FormulaField` 通过 `create_entry` / `update_entry` **写入会被服务端忽略**（在 `NOT_SUPPORT_UPDATE_FIELDS` 黑名单里）——能创建字段但补录数据无效。`AttachmentField` 不在写入黑名单，但 value 需要先把附件上传到 CDN 拿 attachment_id，MCP 没有提供上传接口，**实际很难写入**——能读不能写
 
@@ -189,10 +187,11 @@ CheckBox, DropDown, DateTimeField, RatingField
 | ------ | ------ | ------ | ------ |
 | `TextField` / `TextArea` / `MobileField` / `TelephoneField` / `LinkField` | `predefined_value` | String | 默认预填值 |
 | 同上 | `placeholder` | String | 占位提示 |
+| `MobileField` | `sms_verification` | Bool | 启用短信验证码校验（用户提交时手机号需收码；同步开启图形验证码） |
 | `EmailField` | `placeholder` | String | 占位提示（无 predefined_value） |
 | `NumberField` | `predefined_value` / `placeholder` | String | 默认值 / 占位 |
 | `NumberField` | `range_min` / `range_max` | Number | 闭区间最小值 / 最大值 |
-| `NumberField` | `precision` | Integer | 小数位数（0–6） |
+| `NumberField` | `precision` | Integer | 小数位数（0–14） |
 | `DateTimeField` | `predefined_value` | String | 与 precision 匹配的日期串，或 `today` / `yesterday` / `tomorrow` |
 | `DateTimeField` | `precision` | String | `year` / `month` / `day`（默认） / `hour` / `minute` / `second` |
 | `AttachmentField` | `max_size` | Number | 单文件最大尺寸（MB） |
@@ -203,19 +202,25 @@ CheckBox, DropDown, DateTimeField, RatingField
 | `AttachmentField` | `media_type` / `mobile_camera_only` | - | 文件类型限制 / 移动端是否仅允许拍照 |
 | `TimeField` | `predefined_value` / `include_second` | - | 默认值 / 是否精确到秒 |
 | `SortField` | `random_choices` | Bool | 选项随机展示 |
-| `AudioField` | `max_duration` | Number | 最大录音时长（秒） |
+| `AudioField` | `max_duration` | Number | 最大录音时长（**分钟**，>0 且 ≤5） |
 | `CascadeDropDown` | `levels` / `choice_filterable` / `random_choices` | - | 级联层数 / 是否可搜索 / 选项随机 |
-| `LikertField` / `MatrixField` / `MatrixScaleField` | `horizontal_on_mobile` 等 | - | 见 `describe_field_type` |
+| `LikertField` | `horizontal_on_mobile` / `likert_choice_style` / `minimum_length` / `maximum_length` | - | 移动端横排 / `single` 或 `multiple` 答题 / 多选时下限上限 |
+| `MatrixField` | `horizontal_on_mobile` / `advanced_feature` | - | 移动端横排 / 高级模式（合并列等） |
+| `MatrixScaleField` | `horizontal_on_mobile` | - | 移动端横排 |
 | `GoodsField` | `unit` / `collapse_on_mobile` / `columns_on_mobile` | - | 单位 / 移动端折叠 / 移动端列数 |
 | `FormulaField` | `formula_display` 等 | - | 公式表达式 + 结果展示控制 |
 | `ReservationField` | `allow_multiple_items` / `item_allow_multiple_reservations` 等 | - | 多时段 / 多人预约 |
-| `FormAssociation` | `associated_form_token` / `associated_field_api_codes` 等 | - | 见 `describe_field_type`，详细约束见下文 |
-| `PageBreak` | `disable_previous_page` / `previous_page_text` / `next_page_text` | - | 翻页控制 |
-| `WidgetButton` / `WidgetContact` / `WidgetMap` / `WidgetMarquee` | 见 `describe_field_type` | - | 装饰控件类的具体属性 |
+| `FormAssociation` | `associated_form_token` / `associated_field_api_codes` / `display_field_api_codes` / `privacy_safe` / `allow_reverse_association` / `reverse_display_field_api_codes` | - | 详细约束见下文 |
+| `SectionBreak` | `show_split_line` / `show_part_description` | Bool | 描述字段：顶部分割线 / 长文折叠展示 |
+| `PageBreak` | `disable_previous_page` / `previous_page_text` / `next_page_text` / `count_down` | - | 翻页控制（上一页隐藏 / 按钮文案 / 下一步倒计时秒数） |
+| `WidgetButton` | `buttons_number` / `fixed_to_bottom` / `buttons` | - | 跳转按钮组：按钮数 / 是否吸底 / 按钮明细数组 |
+| `WidgetContact` | `widget_max_images_number` / `phones` / `widget_images` | - | 联系我们：图片张数上限 / 电话列表 / 图片列表 |
+| `WidgetMap` | `nav_address` / `longitude` / `latitude` / `value` / `localizable_on_mobile` | - | 地图导航：可读地址 / 经纬度 / 移动端可定位 |
+| `WidgetMarquee` | `lines` / `entries_init_number` / `entries_number_visible` / `marquee_data_type` | - | 跑马灯：行数 / 起始数 / 展示计数 / `fake` 或 `real` 数据源 |
 
 > 这些属性同样适用于 `edit_form.fields.update[]`：传哪个改哪个，未传保持原值；传给类型不匹配的字段会被静默忽略。
 >
-> ⚡ **不确定某字段类型的完整属性时，调 `describe_field_type(type="GoodsField")`**——返回 summary、common attrs、type-specific attrs、example 和 note，比硬记表格高效。
+> ⚡ **每种字段的完整 schema、示例 payload、常见雷区参见 [`references/tools.md`](references/tools.md) 的 create_form 章节**。
 
 ## 字段值格式规范
 
@@ -351,7 +356,7 @@ MCP 路径下 `MobileField` 会**跳过短信验证码校验**（`*_skip_verific
 | 以为 `update_entry` / `delete_entry` 有批量版本 | 没有 bulk 接口，批量操作一律**逐条循环调用**，每 20 条向用户汇报进度       |
 | 用测试号段（如 `13800138000`）补录手机号 | `MobileField` 号段正则在 MCP 路径下仍跑，保留号段会被 400 拒；用真实在用号段或让用户提供样本 |
 | `TableField` 按"二维数组"传            | 实际是**对象数组**：`[{dimension_api_code: value, ...}, ...]`，每行一个 hash、键是 dimension 的 api_code |
-| 以为高级字段不能用 MCP 创建            | 现已支持 38 种字段，包含 `PageBreak` / 电子签 / 公式 / 级联 / 关联表单 / 矩阵 / 商品 / 预约 等；`StyledText`（说明文字）/ `SectionBreak`（描述字段）/ `MultipleBlanksField` 不在白名单。具体属性查 `describe_field_type`；`ESignatureField` / `FormulaField` 仍**不能通过 create_entry/update_entry 补录数据** |
+| 以为高级字段不能用 MCP 创建            | 现已支持 39 种字段，包含 `SectionBreak`（描述字段）/ `PageBreak` / 电子签 / 公式 / 级联 / 关联表单 / 矩阵 / 商品 / 预约 等；`StyledText`（老版说明文字）/ `MultipleBlanksField`（横向填空）不在白名单。每种字段的完整 schema 见 [`references/tools.md`](references/tools.md)；`ESignatureField` / `FormulaField` 仍**不能通过 create_entry/update_entry 补录数据** |
 | 让 MCP 用 `create_entry` / `update_entry` 写附件 | `AttachmentField` 已可创建（带 `max_size` / `max_file_quantity`），但 entry value 需要 attachment_id；MCP 无文件上传接口，**实际写不进去**；引导用户去前端表单页提交 |
 | `edit_form` 删字段传 label             | `fields.remove` 传的是字段 **api_code** 数组                                      |
 | 改选项文案用 remove + add              | 用 `fields.update_choices.update`（保留 api_code），remove+add 会换 api_code、历史数据引用失效 |
@@ -449,7 +454,7 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 - ❌ 不要把 `serial_number` 和 entry token / id 混用——`get_entry` / `update_entry` / `delete_entry` 传的是 **serial_number**（整数）
 - ❌ 不要在未确认的情况下做 update / delete 批量操作
 - ❌ 不要用 `13800138000` / `138001380XX` 这类保留测试号段补录 `MobileField`，号段正则 400 拒
-- ❌ 不要假设"高级字段不能用 MCP 创建"——现已支持 38 种含 `PageBreak` / 电子签 / 公式 / 级联 / 关联 / 矩阵 / 商品 / 预约。**`StyledText`（说明文字）/ `SectionBreak`（描述字段）/ `MultipleBlanksField`（横向填空）不在白名单**。具体属性请查 `describe_field_type`
+- ❌ 不要假设"高级字段不能用 MCP 创建"——现已支持 39 种含 `SectionBreak` / `PageBreak` / 电子签 / 公式 / 级联 / 关联 / 矩阵 / 商品 / 预约。**`StyledText`（老版说明文字）/ `MultipleBlanksField`（横向填空）不在白名单**。每种字段的完整 schema 见 [`references/tools.md`](references/tools.md)
 - ❌ 不要尝试用 `create_entry` / `update_entry` 写入 `ESignatureField` / `FormulaField`——服务端会忽略；`AttachmentField` 因为缺少文件上传通路也写不进去
 - ❌ 不要用 `fields.update_choices.remove` + `add` 来改选项文案（会换 api_code、旧数据引用失效）；改名永远用 `fields.update_choices.update`
 - ❌ 不要把用户数据的手机号 / 身份证 / 邮箱 / 付款金额原样输出到公共上下文

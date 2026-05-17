@@ -40,7 +40,7 @@
 
 **AI 调用**：`create_form`。NPS 题直接用 `NpsField`（可加 `minimum_ratings_display_text="非常不可能"` / `maximum_ratings_display_text="非常可能"`），原因用 `TextArea`，邮箱用 `EmailField`。也可以用 `RatingField` + `rating_max=10` 模拟 NPS 打分。
 
-> 💡 矩阵类字段（`LikertField` / `MatrixField` / `MatrixScaleField`）现已支持创建，具体属性查 `describe_field_type(type="LikertField")`。
+> 💡 矩阵类字段（`LikertField` / `MatrixField` / `MatrixScaleField`）现已支持创建，每种字段的完整 schema 和示例见 [`tools.md`](tools.md) 的 create_form 章节。
 
 ### 1.3 复制已有表单并改造
 

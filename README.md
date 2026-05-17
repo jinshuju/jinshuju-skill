@@ -4,8 +4,9 @@
 
 ## 功能概览
 
-- **表单管理**：创建 / 复制 / 编辑表单、调整主题，支持 AI 生成头图
-- **数据管理**：查询、新增、批量修改与删除表单数据
+- **表单管理**：创建 / 复制 / 移动 / 编辑表单，调整主题；支持 **39 种字段类型**（含矩阵、商品、公式、关联表单、预约等），头图可由 AI 根据表单内容自动生成
+- **数据管理**：查询、新增、批量修改与删除表单数据，支持字段值条件下推过滤（等值 / 区间 / 模糊 / 集合等）
+- **账户与团队**：查看当前用户、企业套餐与用量、列出团队成员
 - **账单查询**：查看电子发票与付款记录
 
 ## 目录结构
@@ -15,8 +16,9 @@
 ├── skills/jinshuju/
 │   ├── SKILL.md              # 能力定义与使用规范
 │   ├── references/
-│   │   ├── guide.md          # 字段类型、主键与工具调用指引
-│   │   └── examples.md       # 典型场景示例
+│   │   ├── tools.md          # 18 个 MCP 工具的完整输入 / 输出 / 错误参考
+│   │   ├── guide.md          # 安装配置、效果展示、常见误区
+│   │   └── examples.md       # 典型场景的 Prompt 与调用示例
 │   └── scripts/
 │       └── setup.py          # MCP 连接器安装辅助脚本
 └── icons/
@@ -70,14 +72,21 @@ python3 skills/jinshuju/scripts/setup.py --print-json YOUR_API_KEY YOUR_API_SECR
 用户：帮我建一个"2026 春季产品发布会"报名表，要姓名、手机号、公司、职位
 助手：（调用 create_form 创建表单并返回链接与 form_token）
 
+用户：给这个表单换个蓝紫色科技感的头图
+助手：（调用 edit_theme.generate_header_image，AI 按表单主题生成头图）
+
 用户：统计一下本月报名里手机号以 138 开头的有几条
-助手：（调用 list_entries 拉取数据，本地过滤后以 Markdown 表格展示）
+助手：（list_entries 用 filters 把 like / created_at 条件下推到数据库，分页拉回）
 
 用户：把这些人的"跟进状态"全部改成"已联系"
 助手：（先展示命中记录并二次确认，确认后逐条调用 update_entry）
+
+用户：我这个月还剩多少短信额度？什么时候到期？
+助手：（调用 get_current_billing_account，从 plan / usage 字段拿到套餐 / 短信余额 / 到期日）
 ```
 
-更多场景参见 [`references/examples.md`](skills/jinshuju/references/examples.md)。
+更多场景参见 [`references/examples.md`](skills/jinshuju/references/examples.md)，
+每个工具的完整输入 / 输出参见 [`references/tools.md`](skills/jinshuju/references/tools.md)。
 
 ## 反馈
 
