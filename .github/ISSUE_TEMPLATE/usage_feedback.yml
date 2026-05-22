@@ -1,0 +1,49 @@
+name: Usage feedback
+description: Report an issue or suggestion for Jinshuju Skill
+title: "[Skill]: "
+labels: ["feedback"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, or what would you like to improve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Scenario
+      description: What were you trying to do with Jinshuju Skill?
+      placeholder: "For example: create a form, query entries, update records, check billing usage..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps or prompt
+      description: Share the steps or prompt that led to the issue. Remove sensitive data before posting.
+      placeholder: |
+        1. Configure MCP...
+        2. Ask the assistant...
+        3. See...
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
+      description: Remove API keys, secrets, access tokens, private form data, customer data, and screenshots with sensitive information.
+    validations:
+      required: false
