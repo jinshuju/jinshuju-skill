@@ -1,5 +1,7 @@
 # 金数据 Skill
 
+[![skills.sh](https://skills.sh/b/jinshuju/jinshuju-skill)](https://skills.sh/jinshuju/jinshuju-skill)
+
 金数据官方 Skill，基于金数据 MCP Server，让 AI 助手通过自然语言完成表单搭建、数据管理、账户查询与工作流自动化。
 
 ## 适合谁使用
@@ -24,7 +26,19 @@ https://jinshuju.net/mcp
 
 ### 2. 安装 Skill
 
-将 `skills/jinshuju/` 目录放入你的 AI 客户端 Skill 目录，重启客户端使其加载。
+推荐使用 [skills CLI](https://www.skills.sh/) 一键安装：
+
+```bash
+# 装到当前项目（默认）
+npx skills add jinshuju/jinshuju-skill
+
+# 装到用户全局，并指定 AI 客户端
+npx skills add jinshuju/jinshuju-skill -g -a claude-code
+```
+
+支持 Claude Code、Codex、Cursor、OpenCode 等 50+ 客户端。
+
+也可以手动安装：将 `skills/jinshuju/` 目录放入你的 AI 客户端 Skill 目录，重启客户端使其加载。
 
 ### 3. 验证
 
