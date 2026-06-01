@@ -1,10 +1,15 @@
 ---
 name: jinshuju
 description: >
-  Use when the user wants to create or edit forms, collect or query entries,
-  bulk-update form data, check invoices or payment history, or manage their
-  Jinshuju (金数据) account and team members. Also activate for keywords:
-  金数据, 表单, 问卷, 报名表, form_token, 数据录入, 数据查询, 批量修改.
+  Operate on the user's 金数据 (Jinshuju, jinshuju.net) hosted online form
+  platform via the Jinshuju MCP: create/copy/edit forms and themes; query,
+  create, update, delete or bulk-update entries; check the account's invoices,
+  payment history, plan quota or team members. Use ONLY when the user is acting
+  on their 金数据 platform data — signaled by mentioning 金数据/Jinshuju/
+  jinshuju.net, providing a form_token, or asking to operate a form or entries
+  already hosted there. Do NOT use for building form/survey software in code,
+  processing local files or spreadsheets, image/receipt OCR, logistics or
+  monitoring systems, or generic data work unrelated to the 金数据 platform.
 version: 1.3.0
 author: Jinshuju
 license: MIT
@@ -22,12 +27,23 @@ metadata:
 
 ## When to Use
 
-- 用户提到"金数据"、"Jinshuju"、"表单"、"问卷"、"报名表"、"登记表"
-- 用户想创建、复制、编辑、移动表单，或修改表单主题
-- 用户想查询、新建、更新、删除表单数据（entries）
-- 用户想批量修改或导出数据
-- 用户询问账单、发票、付款记录、套餐额度、团队成员
-- 用户给出了 `form_token` 或说"帮我操作这张表单"
+本 skill **仅处理金数据线上表单平台（jinshuju.net）** 的表单搭建、数据管理与账单查询，且需满足以下任一**平台信号**才触发：
+
+- 用户明确提到"金数据"、"Jinshuju"、"jinshuju.net"
+- 用户给出了 `form_token`，或要操作一张**已在金数据上**的表单 / 数据（创建、复制、编辑、移动表单，修改主题，增删改查或批量修改 entries，导出数据）
+- 用户要查询本账户的账单、发票、付款记录、套餐额度、团队成员
+
+## When NOT to Use
+
+以下场景**不要**用本 skill，直接退出、交给通用能力处理：
+
+- 用代码 / 程序开发表单、问卷、评估系统（如在 Python / 前端项目里"做一个报名表 / 问卷"）
+- 处理本地文件、Excel / CSV、文档分析
+- 图片、账单、票据的 OCR / 识别
+- 物流、监控等与金数据平台无关的业务自动化
+- 仅出现"表 / 表单 / 问卷"字眼，但并非操作金数据线上平台
+
+判断不属于金数据平台操作时，**不要调用任何 MCP 工具**，按通用能力回答即可。
 
 ## Quick Reference
 
@@ -55,6 +71,8 @@ metadata:
 ## Procedure
 
 ### 原则
+
+> ⚠️ **绝不绕过 MCP**：金数据 MCP 工具不可用（未连接 / 授权失败 / 调用持续报错）时**立即停止**，**禁止**改用浏览器自动化（Playwright 等）、直接调 GraphQL / REST API、curl 或模拟后台操作来替代——这类非标方式会产出中文乱码、字段不兼容的错误表单。正确做法见下方「MCP 不可用时」。
 
 1. **先看再动**：操作未知表单前，先 `get_form` 拿字段结构——每个字段的 `api_code`、选项的 `choices[].api_code`、表格的 `dimensions[].api_code`。`create_entry` / `update_entry` 的键**必须是 `api_code`**，传中文 label 会被服务端丢弃。
 
@@ -141,6 +159,7 @@ metadata:
 - **删除整张表单** → MCP 不支持 `delete_form`，引导用户去后台手动操作
 - **`ESignatureField` / `FormulaField` 写入 entry** → 服务端忽略，写入无效
 - **改选项文案用 remove + add** → 会换 api_code，历史数据引用失效；改名用 `fields.update_choices.update`
+- **限流报错（HTTP 429 / code 14003）把原始 JSON 抛给用户** → 不友好；改为告知"接口请求频繁，请等 1–2 分钟后重试"，并放慢节奏、合并可批量的请求降低调用频次；不要立刻疯狂重试
 
 ## Verification
 
@@ -180,3 +199,13 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 ```
 
 常见配置错误：漏 `/mcp` 后缀、用 `http://`、`Authorization` 缺 `Basic ` 前缀、用 `command/args`（stdio 写法，金数据是远程 HTTP MCP 不支持）。
+
+### MCP 不可用时
+
+工具未连接 / 授权失败 / 持续报错时，按顺序降级，**不要**用任何非标方式替代：
+
+1. 告知用户"金数据 MCP 未就绪"，不要假装已完成操作。
+2. 对照上面的「常见配置错误」引导排查（端点、`Basic ` 前缀、OAuth 授权等）。
+3. 仍不行，就给出在金数据后台（jinshuju.net）手动操作的步骤指引。
+
+> 超大表单（数十个字段）即使 MCP 正常，也建议先 `create_form` 建核心字段，再用 `edit_form` 分批补充，降低超长请求被截断 / 超时的风险。
