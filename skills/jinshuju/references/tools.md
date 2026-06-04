@@ -1,6 +1,6 @@
 # 金数据 MCP 工具完整参考
 
-本文档列出当前对外开放的 **18 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
+本文档列出当前对外开放的 **16 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
 
 > 工具的实际暴露名可能带客户端前缀（如 `mcp__jinshuju__list_forms`），按客户端实际名字调用即可，本文统一用裸名。
 
@@ -11,7 +11,6 @@
 | **Forms** | [`list_forms`](#list_forms) · [`list_folders`](#list_folders) · [`get_form`](#get_form) · [`create_form`](#create_form) · [`copy_form`](#copy_form) · [`move_form`](#move_form) · [`edit_form`](#edit_form) · [`edit_theme`](#edit_theme) |
 | **Entries** | [`list_entries`](#list_entries) · [`get_entry`](#get_entry) · [`create_entry`](#create_entry) · [`update_entry`](#update_entry) · [`delete_entry`](#delete_entry) |
 | **Account** | [`get_current_user`](#get_current_user) · [`get_current_billing_account`](#get_current_billing_account) · [`list_account_users`](#list_account_users) |
-| **Billing** | [`list_invoices`](#list_invoices) · [`list_payment_histories`](#list_payment_histories) |
 
 ## OAuth Scope 速查
 
@@ -23,7 +22,6 @@
 | `write_entries` | create_entry / update_entry / delete_entry |
 | `user` | get_current_user |
 | `billing_account` | get_current_billing_account / list_account_users |
-| `public` | list_invoices / list_payment_histories |
 
 > Basic Auth / JWT 模式下不受 scope 限制；OAuth 模式下被授权的 scope 决定可调用工具集合，未授权 scope 调用会报 `Insufficient scope: <name> required`。
 
@@ -1043,103 +1041,6 @@ operator × 字段类型兼容矩阵：
 - `User cannot be found`
 - `Billing account cannot be found`
 - `Insufficient scope: billing_account required`
-
----
-
-# Billing
-
-## list_invoices
-
-**用途**：列出当前账号的电子发票和未开票金额。
-
-**Scope**：`public`
-
-**输入**：无参数
-
-**输出**
-
-```json
-{
-  "invoices": {
-    "count": 3,
-    "records": [
-      {
-        "created_at": "2026-03-15T10:00:00+08:00",
-        "amount": 1000.0,
-        "organization": "示例公司",
-        "dedicated_invoice": true
-      }
-    ]
-  },
-  "uninvoiced_amount": {
-    "total": 500.0,
-    "transaction_count": 2
-  }
-}
-```
-
-**常见错误**
-
-- `Billing account not found`
-- `Insufficient scope: public required`
-
----
-
-## list_payment_histories
-
-**用途**：列出充值/扣费历史。支持日期范围、交易类型筛选、可选附带当前余额。
-
-**Scope**：`public`
-
-**输入**
-
-| 参数 | 类型 | 必填 | 说明 |
-| ---- | ---- | ---- | ---- |
-| `start_date` | string | 否 | `YYYY-MM-DD` |
-| `end_date` | string | 否 | `YYYY-MM-DD` |
-| `verb` | string | 否 | 交易类型过滤（如 `sms_charge` / `ai_points_charge`） |
-| `limit` | integer | 否 | 默认 50，最大 1000 |
-| `include_balance` | bool | 否 | 默认 false；true 时附带 `current_balance` |
-
-**输出**
-
-```json
-{
-  "payment_history": {
-    "total_records": 23,
-    "returned_records": 23,
-    "records": [
-      {
-        "id": "ph_xxx",
-        "created_at": "2026-05-10T14:00:00+08:00",
-        "verb": "sms_charge",
-        "description": "短信扣费",
-        "amount": -10.0,
-        "balance": 990.0
-      }
-    ]
-  },
-  "statistics": {
-    "total_consumption": 230.0,
-    "total_recharge": 1000.0,
-    "verb_distribution": {
-      "sms_charge": { "count": 20, "amount": -200.0 },
-      "ai_points_charge": { "count": 3, "amount": -30.0 }
-    }
-  },
-  "current_balance": {
-    "amount": 770.0,
-    "entry_quota": 45000
-  }
-}
-```
-
-`current_balance` 仅在请求时传了 `include_balance: true` 才出现。
-
-**常见错误**
-
-- `Billing account not found`
-- `Insufficient scope: public required`
 
 ---
 

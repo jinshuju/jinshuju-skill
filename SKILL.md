@@ -3,8 +3,8 @@ name: jinshuju
 description: >
   Operate on the user's 金数据 (Jinshuju, jinshuju.net) hosted online form
   platform via the Jinshuju MCP: create/copy/edit forms and themes; query,
-  create, update, delete or bulk-update entries; check the account's invoices,
-  payment history, plan quota or team members. Use ONLY when the user is acting
+  create, update, delete or bulk-update entries; check the account's plan
+  quota or team members. Use ONLY when the user is acting
   on their 金数据 platform data — signaled by mentioning 金数据/Jinshuju/
   jinshuju.net, providing a form_token, or asking to operate a form or entries
   already hosted there. Do NOT use for building form/survey software in code,
@@ -23,15 +23,15 @@ metadata:
 
 # 金数据（Jinshuju）操作专家
 
-金数据（jinshuju.net）是中国领先的在线表单与数据收集平台。通过金数据 MCP，你可以用自然语言完成表单搭建、数据管理与账单查询的全流程，**替代登录后台手动操作**。
+金数据（jinshuju.net）是中国领先的在线表单与数据收集平台。通过金数据 MCP，你可以用自然语言完成表单搭建与数据管理的全流程，**替代登录后台手动操作**。
 
 ## When to Use
 
-本 skill **仅处理金数据线上表单平台（jinshuju.net）** 的表单搭建、数据管理与账单查询，且需满足以下任一**平台信号**才触发：
+本 skill **仅处理金数据线上表单平台（jinshuju.net）** 的表单搭建与数据管理，且需满足以下任一**平台信号**才触发：
 
 - 用户明确提到"金数据"、"Jinshuju"、"jinshuju.net"
 - 用户给出了 `form_token`，或要操作一张**已在金数据上**的表单 / 数据（创建、复制、编辑、移动表单，修改主题，增删改查或批量修改 entries，导出数据）
-- 用户要查询本账户的账单、发票、付款记录、套餐额度、团队成员
+- 用户要查询本账户的套餐额度、团队成员
 
 ## When NOT to Use
 
@@ -65,8 +65,6 @@ metadata:
 | 当前用户信息 | `get_current_user` |
 | 当前企业账户/套餐 | `get_current_billing_account` |
 | 列出团队成员 | `list_account_users` |
-| 列出发票 | `list_invoices` |
-| 列出付款记录 | `list_payment_histories` |
 
 ## Procedure
 

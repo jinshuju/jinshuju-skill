@@ -53,7 +53,6 @@ npx skills add jinshuju/jinshuju-skill -g -a claude-code
 - **表单管理**：创建 / 复制 / 移动 / 编辑表单，调整主题；支持 39 种字段类型（含矩阵、商品、公式、关联表单、预约等），头图可由 AI 根据表单内容自动生成
 - **数据管理**：查询、新增、批量修改与删除表单数据，支持字段值条件下推过滤（等值 / 区间 / 模糊 / 集合等）
 - **账户与团队**：查看当前用户、企业套餐与用量、列出团队成员
-- **账单查询**：查看电子发票与付款记录
 
 ## 使用示例
 
@@ -83,7 +82,7 @@ npx skills add jinshuju/jinshuju-skill -g -a claude-code
 ├── skills/jinshuju/
 │   ├── SKILL.md              # 能力定义与使用规范
 │   ├── references/
-│   │   ├── tools.md          # 18 个 MCP 工具的完整输入 / 输出 / 错误参考
+│   │   ├── tools.md          # 16 个 MCP 工具的完整输入 / 输出 / 错误参考
 │   │   ├── guide.md          # 安装配置、效果展示、常见误区
 │   │   └── examples.md       # 典型场景的 Prompt 与调用示例
 │   └── scripts/
