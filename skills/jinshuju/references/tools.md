@@ -1,6 +1,6 @@
 # 金数据 MCP 工具完整参考
 
-本文档列出当前对外开放的 **23 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
+本文档列出当前对外开放的 **22 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
 
 > 工具的实际暴露名可能带客户端前缀（如 `mcp__jinshuju__list_forms`），按客户端实际名字调用即可，本文统一用裸名。
 
@@ -10,7 +10,7 @@
 | ---- | ---- |
 | **Forms** | [`list_forms`](#list_forms) · [`list_folders`](#list_folders) · [`get_form`](#get_form) · [`create_form`](#create_form) · [`copy_form`](#copy_form) · [`move_form`](#move_form) · [`edit_form`](#edit_form) · [`edit_theme`](#edit_theme) |
 | **考试 / 测评** | [`create_exam_form`](#create_exam_form) · [`edit_exam_form`](#edit_exam_form) · [`create_evaluation_form`](#create_evaluation_form) · [`edit_evaluation_form`](#edit_evaluation_form) |
-| **上传** | [`prepare_header_image_upload`](#prepare_header_image_upload) · [`prepare_field_image_upload`](#prepare_field_image_upload) · [`prepare_entry_attachment_upload`](#prepare_entry_attachment_upload) |
+| **上传** | [`prepare_form_image_upload`](#prepare_form_image_upload) · [`prepare_entry_attachment_upload`](#prepare_entry_attachment_upload) |
 | **Entries** | [`list_entries`](#list_entries) · [`get_entry`](#get_entry) · [`create_entry`](#create_entry) · [`update_entry`](#update_entry) · [`delete_entry`](#delete_entry) |
 | **Account** | [`get_current_user`](#get_current_user) · [`get_current_billing_account`](#get_current_billing_account) · [`list_account_users`](#list_account_users) |
 
@@ -18,8 +18,8 @@
 
 | Scope | 涵盖工具 |
 | ----- | -------- |
-| `forms` | list_forms / list_folders / get_form / create_form / copy_form / move_form / edit_form / create_exam_form / edit_exam_form / create_evaluation_form / edit_evaluation_form / prepare_field_image_upload |
-| `form_setting` | edit_theme / prepare_header_image_upload |
+| `forms` | list_forms / list_folders / get_form / create_form / copy_form / move_form / edit_form / create_exam_form / edit_exam_form / create_evaluation_form / edit_evaluation_form / prepare_form_image_upload（type=field_choice） |
+| `form_setting` | edit_theme / prepare_form_image_upload（type=header） |
 | `read_entries` | list_entries / get_entry |
 | `write_entries` | create_entry / update_entry / delete_entry / prepare_entry_attachment_upload |
 | `user` | get_current_user |
@@ -225,7 +225,7 @@
 | `private` | bool | 是否隐藏，设 true 时 `required` 自动置 false |
 | `unique` | bool | 不允许重复值。仅 `TextField` / `NameField` / `EmailField` / `MobileField` / `TelephoneField` / `IdCardField` / `LinkField` / `FormAssociation` 支持 |
 | `notes` | string | 字段提示文案（SectionBreak 时是描述正文） |
-| `choices` | array | 选项字段用：`[{ value, quota?, operand_value?, image_url?, image_upload_token?, sub_choices? }]`。`operand_value`（选项赋值）配合字段 `calculable=true` 给每个选项赋数值，供 FormulaField 计算——开启 calculable 后**每个选项都必须给** `operand_value`；`image_upload_token` 见 [prepare_field_image_upload](#prepare_field_image_upload) |
+| `choices` | array | 选项字段用：`[{ value, quota?, operand_value?, image_url?, image_upload_token?, sub_choices? }]`。`operand_value`（选项赋值）配合字段 `calculable=true` 给每个选项赋数值，供 FormulaField 计算——开启 calculable 后**每个选项都必须给** `operand_value`；`image_upload_token` 见 [prepare_form_image_upload](#prepare_form_image_upload) |
 | `statements` | array | 矩阵类用：`[{ label }]` |
 | `dimensions` | array | TableField / MatrixField 用 |
 | `rating_max` | int | RatingField / MatrixScaleField 用，3/5/10 |
@@ -829,7 +829,7 @@
 | `text` | string | 头图区文字（type=text 时） |
 | `text_style` | object | `{ font_size, font_weight, color, text_align }` |
 | `background_color` | string | 头部背景色 |
-| `header_image_upload_token` | string | 本地 / 会话内图片：先 [`prepare_header_image_upload`](#prepare_header_image_upload) 上传，再把 token 传进来 |
+| `header_image_upload_token` | string | 本地 / 会话内图片：先 [`prepare_form_image_upload`](#prepare_form_image_upload)（`type=header`）上传，再把 token 传进来 |
 | `header_image_url` | string | 外链图片 URL，服务端下载创建附件 |
 | `header_image_base64` | string | Base64 图片数据（⚠️ LLM 易截断，能不用就不用） |
 
@@ -879,16 +879,17 @@
 
 ---
 
-## prepare_header_image_upload
+## prepare_form_image_upload
 
-**用途**：把**只存在于本地 / 对话上下文中的图片**上传为表单头图。返回上传凭证后，调用方自行发 HTTP multipart 请求上传，再把 token 传给 `edit_theme`。
+**用途**：把**只存在于本地 / 对话上下文中的图片**上传为表单自身的图片。`type` 决定用途：`field_choice` = 图片选项（`ImageRadioButton` / `ImageCheckBox`）的选项配图，`header` = 表单头图。返回上传凭证后，调用方自行发 HTTP multipart 请求上传，再把 token 传给对应工具。
 
-**Scope**：`form_setting`
+**Scope**：按 `type` 区分——`field_choice` 需要 `forms`，`header` 需要 `form_setting`
 
 **输入**
 
 | 参数 | 类型 | 必填 | 说明 |
 | ---- | ---- | ---- | ---- |
+| `type` | enum | ✅ | `field_choice` / `header` |
 | `filename` | string | ✅ | 原始文件名，如 `banner.png` |
 | `content_type` | string | ✅ | MIME 类型：`image/jpeg` / `image/png` / `image/gif` / `image/webp` |
 | `size` | integer | ✅ | 文件精确字节数 |
@@ -898,11 +899,11 @@
 ```json
 {
   "method": "POST",
-  "upload_url": "https://jinshuju.net/api/v1/header_image_attachments",
+  "upload_url": "https://jinshuju.net/api/v1/form_image_attachments",
   "headers": {},
-  "fields": { "header_image_token": "header_img_tok_..." },
+  "fields": { "form_image_token": "form_img_tok_..." },
   "file_field": "file",
-  "header_image_token": "header_img_tok_...",
+  "form_image_token": "form_img_tok_...",
   "expires_at": "2026-06-12T08:30:00Z"
 }
 ```
@@ -910,26 +911,17 @@
 **使用流程**
 
 1. 按返回的 `method` + `upload_url` 发 multipart/form-data 请求：带上 `fields` 里的所有键值，文件放在名为 `file`（`file_field`）的字段里
-2. 上传成功（HTTP 201）后，把 `header_image_token` 作为 `edit_theme` 的 `header.header_image_upload_token` 传入
+2. 上传成功（HTTP 201）后引用 token：
+   - `type=field_choice` → `create_form` / `edit_form` 选项里的 `choices[].image_upload_token`
+   - `type=header` → `edit_theme` 的 `header.header_image_upload_token`
 3. **token 有效期 30 分钟**（见 `expires_at`），过期重新调用本工具；上传文件的 filename / content_type / size 必须与申请时完全一致
+4. token 与申请时的 `type` 绑定，不能混用；`image_upload_token` / `image_url` / `image_base64` 互斥，优先级依此顺序
 
 **常见错误**
 
-- `header_image_token is invalid or expired; prepare upload again` — token 过期 / 未上传 / 不是当前用户申请的
-
----
-
-## prepare_field_image_upload
-
-**用途**：把本地图片上传为**图片选项**（`ImageRadioButton` / `ImageCheckBox`）的选项配图。
-
-**Scope**：`forms`
-
-**输入 / 输出 / 流程**：与 [prepare_header_image_upload](#prepare_header_image_upload) 相同，差异：
-
-- `upload_url` 为 `POST /api/v1/field_image_attachments`，token 字段名为 `field_image_token`
-- 上传成功后，把 token 作为 `create_form` / `edit_form` 选项里的 `choices[].image_upload_token` 传入
-- 选项的 `image_upload_token` / `image_url` / `image_base64` 互斥，优先级依此顺序
+- `type must be one of: field_choice, header.`
+- `form_image_token is invalid or expired; prepare upload again` — token 过期 / 未上传 / 不是当前用户申请的
+- `... was prepared with type=header; prepare upload with type=field_choice`（及反向）— token 的 type 与用途不匹配，按提示重新申请
 
 ---
 
@@ -950,7 +942,7 @@
 | `content_type` | string | ✅ | |
 | `size` | integer | ✅ | 精确字节数 |
 
-**输出**：同 prepare_header_image_upload 的结构，`upload_url` 为 `POST /api/v1/forms/{form_token}/entry_attachments`，token 字段名为 `attachment_token`，`fields` 里还带 `field_api_code`（和可选 `dimension_api_code`）。
+**输出**：同 prepare_form_image_upload 的结构，`upload_url` 为 `POST /api/v1/forms/{form_token}/entry_attachments`，token 字段名为 `attachment_token`，`fields` 里还带 `field_api_code`（和可选 `dimension_api_code`）。
 
 **使用流程**
 

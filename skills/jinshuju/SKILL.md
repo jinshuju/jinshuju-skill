@@ -11,7 +11,7 @@ description: >
   already hosted there. Do NOT use for building form/survey software in code,
   processing local files or spreadsheets, image/receipt OCR, logistics or
   monitoring systems, or generic data work unrelated to the 金数据 platform.
-version: 1.4.0
+version: 1.5.0
 author: Jinshuju
 license: MIT
 platforms: [macos, linux, windows]
@@ -62,8 +62,7 @@ metadata:
 | 移动表单到文件夹 | `move_form` |
 | 修改表单字段/设置 | `edit_form` |
 | 修改表单主题 | `edit_theme` |
-| 上传本地图片作头图 | `prepare_header_image_upload` |
-| 上传本地图片作选项配图 | `prepare_field_image_upload` |
+| 上传本地图片（头图 / 选项配图） | `prepare_form_image_upload` |
 | 上传文件写入附件字段 | `prepare_entry_attachment_upload` |
 | 列出数据 | `list_entries` |
 | 查看单条数据 | `get_entry` |
@@ -101,7 +100,7 @@ metadata:
     create_form 的 scene 已不支持 exam / evaluation）
 2. 返回表单链接和 form_token
 3. 如需特殊样式，追加 edit_theme（可用 generate_header_image 让 AI 生成头图，
-   本地已有图片则先 prepare_header_image_upload 上传）
+   本地已有图片则先 prepare_form_image_upload（type=header）上传）
 ```
 
 **② 条件查询 / 导出**
