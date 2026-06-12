@@ -2,15 +2,16 @@
 name: jinshuju
 description: >
   Operate on the user's 金数据 (Jinshuju, jinshuju.net) hosted online form
-  platform via the Jinshuju MCP: create/copy/edit forms and themes; query,
-  create, update, delete or bulk-update entries; check the account's plan
-  quota or team members. Use ONLY when the user is acting
+  platform via the Jinshuju MCP: create/copy/edit forms and themes, including
+  exam forms with auto-grading and evaluation forms with scored choices; query,
+  create, update, delete or bulk-update entries; upload local images or files
+  via upload tokens; check the account's plan quota or team members. Use ONLY when the user is acting
   on their 金数据 platform data — signaled by mentioning 金数据/Jinshuju/
   jinshuju.net, providing a form_token, or asking to operate a form or entries
   already hosted there. Do NOT use for building form/survey software in code,
   processing local files or spreadsheets, image/receipt OCR, logistics or
   monitoring systems, or generic data work unrelated to the 金数据 platform.
-version: 1.3.0
+version: 1.4.0
 author: Jinshuju
 license: MIT
 platforms: [macos, linux, windows]
@@ -53,10 +54,17 @@ metadata:
 | 列出表单 | `list_forms` |
 | 查看表单详情（字段结构） | `get_form` |
 | 创建表单 | `create_form` |
+| 创建考试表单（答案 + 自动判分） | `create_exam_form` |
+| 编辑考试表单 | `edit_exam_form` |
+| 创建测评表单（选项计分 / 维度报告） | `create_evaluation_form` |
+| 编辑测评表单 | `edit_evaluation_form` |
 | 复制表单 | `copy_form` |
 | 移动表单到文件夹 | `move_form` |
 | 修改表单字段/设置 | `edit_form` |
 | 修改表单主题 | `edit_theme` |
+| 上传本地图片作头图 | `prepare_header_image_upload` |
+| 上传本地图片作选项配图 | `prepare_field_image_upload` |
+| 上传文件写入附件字段 | `prepare_entry_attachment_upload` |
 | 列出数据 | `list_entries` |
 | 查看单条数据 | `get_entry` |
 | 新建数据 | `create_entry` |
@@ -89,8 +97,11 @@ metadata:
 **① 新建表单**
 ```
 1. create_form，传字段列表 + setting
+   （考试 / 测评场景改用 create_exam_form / create_evaluation_form，
+    create_form 的 scene 已不支持 exam / evaluation）
 2. 返回表单链接和 form_token
-3. 如需特殊样式，追加 edit_theme（可用 generate_header_image 让 AI 生成头图）
+3. 如需特殊样式，追加 edit_theme（可用 generate_header_image 让 AI 生成头图，
+   本地已有图片则先 prepare_header_image_upload 上传）
 ```
 
 **② 条件查询 / 导出**
@@ -157,6 +168,10 @@ metadata:
 - **删除整张表单** → MCP 不支持 `delete_form`，引导用户去后台手动操作
 - **`ESignatureField` / `FormulaField` 写入 entry** → 服务端忽略，写入无效
 - **改选项文案用 remove + add** → 会换 api_code，历史数据引用失效；改名用 `fields.update_choices.update`
+- **用 create_form 建考试/测评** → scene 枚举已移除 exam / evaluation；用 `create_exam_form` / `create_evaluation_form`
+- **考试开限时又把题目设必填** → `show_timeout=true` 与题目字段 `required` 互斥；默认不开限时，仅用户明确要求时开
+- **FormulaField 引用同一请求新增的字段** → 新字段还没有 api_code，公式里用 `<gd-field data-cid="...">` 引用其 `cid`，不要猜 api_code
+- **编辑考试/测评题目时只传改动的 answers 项** → answers 是整体替换语义，会重建整个答案库；必须传完整列表
 - **限流报错（HTTP 429 / code 14003）把原始 JSON 抛给用户** → 不友好；改为告知"接口请求频繁，请等 1–2 分钟后重试"，并放慢节奏、合并可批量的请求降低调用频次；不要立刻疯狂重试
 
 ## Verification

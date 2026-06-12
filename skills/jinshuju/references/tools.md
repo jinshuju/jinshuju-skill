@@ -1,6 +1,6 @@
 # 金数据 MCP 工具完整参考
 
-本文档列出当前对外开放的 **16 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
+本文档列出当前对外开放的 **23 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
 
 > 工具的实际暴露名可能带客户端前缀（如 `mcp__jinshuju__list_forms`），按客户端实际名字调用即可，本文统一用裸名。
 
@@ -9,6 +9,8 @@
 | 类别 | 工具 |
 | ---- | ---- |
 | **Forms** | [`list_forms`](#list_forms) · [`list_folders`](#list_folders) · [`get_form`](#get_form) · [`create_form`](#create_form) · [`copy_form`](#copy_form) · [`move_form`](#move_form) · [`edit_form`](#edit_form) · [`edit_theme`](#edit_theme) |
+| **考试 / 测评** | [`create_exam_form`](#create_exam_form) · [`edit_exam_form`](#edit_exam_form) · [`create_evaluation_form`](#create_evaluation_form) · [`edit_evaluation_form`](#edit_evaluation_form) |
+| **上传** | [`prepare_header_image_upload`](#prepare_header_image_upload) · [`prepare_field_image_upload`](#prepare_field_image_upload) · [`prepare_entry_attachment_upload`](#prepare_entry_attachment_upload) |
 | **Entries** | [`list_entries`](#list_entries) · [`get_entry`](#get_entry) · [`create_entry`](#create_entry) · [`update_entry`](#update_entry) · [`delete_entry`](#delete_entry) |
 | **Account** | [`get_current_user`](#get_current_user) · [`get_current_billing_account`](#get_current_billing_account) · [`list_account_users`](#list_account_users) |
 
@@ -16,10 +18,10 @@
 
 | Scope | 涵盖工具 |
 | ----- | -------- |
-| `forms` | list_forms / list_folders / get_form / create_form / copy_form / move_form / edit_form |
-| `form_setting` | edit_theme |
+| `forms` | list_forms / list_folders / get_form / create_form / copy_form / move_form / edit_form / create_exam_form / edit_exam_form / create_evaluation_form / edit_evaluation_form / prepare_field_image_upload |
+| `form_setting` | edit_theme / prepare_header_image_upload |
 | `read_entries` | list_entries / get_entry |
-| `write_entries` | create_entry / update_entry / delete_entry |
+| `write_entries` | create_entry / update_entry / delete_entry / prepare_entry_attachment_upload |
 | `user` | get_current_user |
 | `billing_account` | get_current_billing_account / list_account_users |
 
@@ -55,6 +57,7 @@
       "description": "活动报名收集",
       "token": "abCdEf",
       "scene": "registration",
+      "form_url": "https://jinshuju.net/f/abCdEf",
       "created_at": "2026-04-20T10:00:00+08:00",
       "entries_count": 128
     }
@@ -121,6 +124,7 @@
   "name": "2026 春季发布会报名表",
   "token": "abCdEf",
   "description": "活动报名",
+  "form_url": "https://jinshuju.net/f/abCdEf",
   "fields": [
     {
       "api_code": "field_1",
@@ -181,6 +185,8 @@
 ```
 
 > 字段特有属性（如 `goods_items` / `reservation_items` / `associated_form_token` / `predefined_value` / `placeholder` / `range_min/max` / `precision` / `media_type` / `max_size` 等）按字段类型出现在对应 field 节点上。
+>
+> 另外：`setting.field_rules` 返回字段显示规则（结构见 [edit_form](#edit_form)）；考试 / 测评表单还会返回 `setting.exam_setting` / `setting.evaluation_setting`（结构与 [`create_exam_form`](#create_exam_form) / [`create_evaluation_form`](#create_evaluation_form) 的同名入参对齐，题目字段带 `customized_type` 和按选项 value 序列化的 `answers`）——重写 answers / indicators 这类整体替换列表前，先用 get_form 读出现状。
 
 **常见错误**
 
@@ -193,6 +199,8 @@
 
 **用途**：从零创建一张表单。一次性指定 name + 字段列表 + 可选 setting + 可选 folder。
 
+> ⚠️ 考试 / 测评场景不要用本工具：`scene` 枚举已移除 `exam` / `evaluation`，请改用 [`create_exam_form`](#create_exam_form) / [`create_evaluation_form`](#create_evaluation_form)（题目答案、计分只在专用工具里可用）。
+
 **Scope**：`forms`
 
 **输入**
@@ -202,6 +210,7 @@
 | `name` | string | ✅ | 表单名 |
 | `fields` | array  | ✅ | 字段列表，每项见下表 |
 | `description` | string | 否 | 表单说明 |
+| `scene` | enum | 否 | 表单场景：`form`（默认）/ `survey` / `registry` / `vote` / `reservation` / `customer_acquisition` / `online_payment` |
 | `setting` | object | 否 | 初次创建的关键 setting（仅 `success_message` / `open_entry_action` / `open_entry_message` / `notification_rules`）。完整 setting 用 `edit_form` 配 |
 | `folder_token` | string | 否 | 表单要放进的文件夹 token |
 
@@ -211,10 +220,12 @@
 | ---- | ---- | ---- |
 | `type` | string | 字段类型，必须是 [39 种白名单](#字段类型白名单) 之一 |
 | `label` | string | 字段标签 |
+| `cid` | string | 客户端引用 id：每个新字段生成一个表单内唯一的短随机 token（6-8 位字母数字，**不能含 `.`**）。`api_code` 由后端生成、**不可自行指定**；同请求内 FormulaField 公式、测评维度等需要引用新字段时用 cid |
 | `required` | bool | 是否必填，与 `private` 互斥 |
 | `private` | bool | 是否隐藏，设 true 时 `required` 自动置 false |
+| `unique` | bool | 不允许重复值。仅 `TextField` / `NameField` / `EmailField` / `MobileField` / `TelephoneField` / `IdCardField` / `LinkField` / `FormAssociation` 支持 |
 | `notes` | string | 字段提示文案（SectionBreak 时是描述正文） |
-| `choices` | array | 选项字段用：`[{ value, quota?, image_url?, sub_choices? }]` |
+| `choices` | array | 选项字段用：`[{ value, quota?, operand_value?, image_url?, image_upload_token?, sub_choices? }]`。`operand_value`（选项赋值）配合字段 `calculable=true` 给每个选项赋数值，供 FormulaField 计算——开启 calculable 后**每个选项都必须给** `operand_value`；`image_upload_token` 见 [prepare_field_image_upload](#prepare_field_image_upload) |
 | `statements` | array | 矩阵类用：`[{ label }]` |
 | `dimensions` | array | TableField / MatrixField 用 |
 | `rating_max` | int | RatingField / MatrixScaleField 用，3/5/10 |
@@ -334,13 +345,15 @@
 ```json
 {
   "type": "FormulaField", "label": "总价",
-  "formula_display": "<gd-field data-api-code=\"field_2\"></gd-field> * <gd-field data-api-code=\"field_3\"></gd-field>",
+  "formula_display": "<gd-field data-api-code=\"field_2\"></gd-field> * <gd-field data-cid=\"qty7x\"></gd-field>",
   "result_display_type": "numeric",
   "precision": 2,
   "icon_type": "cny1",
   "thousands_separator": true
 }
 ```
+
+> 公式引用规则：**已存在的字段**用 `data-api-code`；**同一请求里新增的字段**还没有 api_code，用 `data-cid`（值是该字段的 `cid`），保存时后端解析为新分配的 api_code。表格 / 矩阵的新维度用 `data-cid="表格cid" data-dimension-cid="列cid"`。不要预测 `field_N` 序号或自行指定 api_code。
 
 ```json
 {
@@ -444,6 +457,7 @@
 | `description` | string | 否 | 新表单说明 |
 | `setting` | object | 否 | 见下"setting 全字段表"；**只传要改的 key，其他保持原值** |
 | `fields` | object | 否 | `{ add[], remove[], update[], update_choices[] }` 四种操作，原子化执行 |
+| `field_rules` | array | 否 | 字段显示规则，见下"field_rules 显示规则"；**整体替换语义** |
 
 **必须至少传一个 edit 操作，否则报 `No edit operations specified`。**
 
@@ -506,7 +520,7 @@
 
 #### `fields.add: []`
 
-形态与 `create_form.fields[]` 完全一致，可额外指定 `position`（0-based 插入位置，省略则追加到末尾）。
+形态与 `create_form.fields[]` 完全一致（含 `cid`，同请求内公式引用新字段时必需），可额外指定 `position`（0-based 插入位置，省略则追加到末尾）。
 
 ```json
 {
@@ -555,12 +569,42 @@
         "field_api_code": "field_status",
         "add": [{ "value": "已签约", "quota": 100 }],
         "remove": [{ "api_code": "status_obsolete" }],
-        "update": [{ "api_code": "status_contacted", "value": "已联系过" }]
+        "update": [{ "api_code": "status_contacted", "value": "已联系过", "operand_value": 3 }]
       }
     ]
   }
 }
 ```
+
+### field_rules 显示规则
+
+按触发字段的值显示目标字段，或终止填写。**整体替换语义**：传 `field_rules` 会清空现有全部规则按数组重建；传 `[]` 清空所有规则；不传则保持不变。
+
+```json
+{
+  "field_rules": [
+    {
+      "targets": ["field_2", "field_5"],
+      "targets_display_mode": "show",
+      "operator": "or",
+      "conditions": [
+        { "trigger": "field_1", "comparator": "equal", "value": ["choice_A"] }
+      ]
+    }
+  ]
+}
+```
+
+| 字段 | 说明 |
+| ---- | ---- |
+| `targets` | 目标字段 api_code 列表；`targets_display_mode=show` 时必填，`abort` 时忽略 |
+| `targets_display_mode` | `show`（命中条件时显示目标字段）/ `abort`（命中条件时终止填写） |
+| `operator` | 多条件组合方式 `and` / `or`，默认 `or` |
+| `conditions[].trigger` | 触发字段 api_code |
+| `conditions[].comparator` | `equal` / `none_in` / `between` / `like` / `not_like`，默认 `equal` |
+| `conditions[].value` | 按 comparator 取标量 / 数组 |
+
+注意：目标字段在表单顺序上必须位于触发字段**之后**，否则该规则被静默丢弃；目标字段必须保持**普通字段（`private=false`）**——显示规则自己负责"默认隐藏、命中条件才显示"，而 `private=true` 的隐藏字段对外永远不可见，设了规则也不会显示。⚠️ 工具 schema 描述里 "mark fields you want to reveal as private=true" 一句有误，勿照做。当前规则可从 `get_form` 的 `setting.field_rules` 读取。
 
 ### 输出
 
@@ -584,9 +628,182 @@
 
 ---
 
+## create_exam_form
+
+**用途**：创建在线考试表单（题目带正确答案 + 分值，提交后自动判分）。考试 / 测验 / quiz / 考核场景用这个，**不要用 create_form**。
+
+**Scope**：`forms`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `name` | string | ✅ | 表单名 |
+| `fields` | array | ✅ | 按显示顺序排列：考生信息字段在前，题目在后。**题目字段必须带 `answers`** |
+| `description` | string | 否 | 表单说明 |
+| `exam_setting` | object | 否 | 考试专属设置，见下 |
+| `setting` | object | 否 | 仅 `fill_frequency`（考试常用 `fill_type=once` + `condition=by_device`）和 `by_time_range_close_rule`（开放时间窗） |
+| `folder_token` | string | 否 | 文件夹 token |
+
+**fields[] 可用类型**
+
+- **题目**（必须带 `answers`，自动判分）：`SingleSelect` 单选题 / `MultiSelect` 多选题 / `TrueOrFalse` 判断题 / `DropDownSelect` 下拉题 / `FillInBlank` 填空题 / `ShortAnswer` 简答题 / `FillInNumber` 数字填空
+- **考生信息**（不计分）：`NameField` / `MobileField` / `EmailField` / `IdCardField` / `TextField` / `DropDown`
+- **排版**：`SectionBreak` / `PageBreak`
+
+其他类型不接受。每个字段都要带表单内唯一的 `cid`（同 create_form），题干放 `label`，选项放 `choices: [{ value }]`。
+
+**answers / answer_setting_mode**
+
+每个答案项 `{ value, score }`。`answer_setting_mode` 决定组织方式：
+
+| 模式 | 说明 | answers 形态 |
+| ---- | ---- | ---- |
+| `absolute`（默认） | 全对得满分否则零分 | 恰好一项；MultiSelect 的 value 是正确选项 value 数组，其他选择题是单个选项 value，填空 / 简答是期望文本，数字填空是数字 |
+| `partial_absolute` | 仅 MultiSelect，按选项部分给分，错选零分 | 每个正确选项一项，各带分值 |
+| `relative` | 每个选项都有分值，无错误答案 | 每个选项一项 |
+
+选择题答案的 value 必须与某个 choice 的 value **完全一致**。可选 `answer_explanation` 提供答案解析（提供即自动开启解析展示）。
+
+**exam_setting**
+
+| 字段 | 类型 | 说明 |
+| ---- | ---- | ---- |
+| `notice_after_filling_mode` | enum | 交卷后展示：`grade` 成绩（默认）/ `explaination` 成绩+解析 / `answer` 仅对错 / `none` 不显示。需套餐支持，否则强制 `none` |
+| `show_timeout` | bool | 限时答题。**默认不开，仅用户明确要求时传 true**；与题目字段 `required` 互斥（考生信息字段必填不受影响） |
+| `limited_time` | int | 限时分钟数（默认 30），配合 `show_timeout=true` |
+| `need_attention` | string | 考前须知 |
+| `success_message_rich_text` | string | 交卷感谢文案（HTML，需套餐支持） |
+| `interval_comments` | array | 分数区间评语 `[{ start_point, end_point, comment, retry? }]`；区间闭区间、不可重叠、按 start_point 升序；**整体替换语义** |
+
+**输出**：同 create_form（`token` / `name` / `form_url` / `fields_count` / `created_at`）。
+
+**常见错误**
+
+- `Invalid field type` — 用了非考试字段类型；复杂普通表单请用 create_form
+- 题目字段缺 `answers` 被拒
+- 答案 value 与选项 value 不匹配
+- `Duplicate field cid(s)` / `Invalid field cid(s)`
+
+---
+
+## edit_exam_form
+
+**用途**：编辑考试表单（create_exam_form 创建的或 exam 场景的表单）：改名 / 描述、原子化增删改题目、改答案分值、改考试设置。**仅 exam 场景表单可用**，其他表单用 edit_form。
+
+**Scope**：`forms`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `form_token` | string | ✅ | |
+| `name` / `description` | string | 否 | |
+| `fields` | object | 否 | `{ add[], remove[], update[], update_choices[] }`，形态同 [edit_form](#edit_form)；`add` 项同 create_exam_form 的 fields[] |
+| `exam_setting` | object | 否 | 同 create_exam_form |
+| `setting` | object | 否 | 同 create_exam_form |
+
+**关键语义**
+
+- `fields.update` 里**传任意一个 `answers` / `answer_setting_mode` / `answer_explanation` 都会重建该题的整个答案库**——必须传完整 answers 列表，不能只传增量
+- 改选项导致正确答案变化时，在**同一请求**里通过 `fields.update` 传新的完整 answers
+- 改选项文案用 `update_choices.update`（保留 api_code），不要 remove + add
+- 先 `get_form` 读出现有题目结构（含 `customized_type`、按选项 value 的 `answers`）再改
+
+**输出**：同 edit_form。
+
+**常见错误**
+
+- 非 exam 场景表单被拒（提示用 edit_form）
+- 一个操作都没传被拒
+- answers 引用了不存在的选项 value
+
+---
+
+## create_evaluation_form
+
+**用途**：创建测评表单。测评 / 心理测试 / 能力评估 / 培训反馈场景用这个，**不要用 create_form**。两种风格：**计分测评**（计分题型 + 选项分值，常用 `relative` 模式，可配维度报告）和**纯反馈问卷**（普通字段，不计分）。
+
+**Scope**：`forms`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `name` | string | ✅ | 表单名 |
+| `fields` | array | ✅ | 评价人信息在前，题目在后。**计分题型必须带 `answers`** |
+| `description` | string | 否 | |
+| `evaluation_setting` | object | 否 | 测评专属设置，见下 |
+| `setting` | object | 否 | 同 create_exam_form 的 setting |
+| `folder_token` | string | 否 | |
+
+**fields[] 可用类型**
+
+- **计分题型**（必须带 `answers`，按所选项分值累计得分）：`SingleSelect` / `MultiSelect` / `DropDownSelect` / `Rating`（每个分值配 score）/ `Nps`
+- **普通字段**（不计分）：`NameField` / `MobileField` / `EmailField` / `IdCardField` / `TextField` / `TextArea` / `RadioButton` / `CheckBox` / `DropDown` / `RatingField` / `NpsField` / `LikertField` / `MatrixScaleField`
+- **排版**：`SectionBreak` / `PageBreak`
+
+`answers` / `answer_setting_mode` 同 [create_exam_form](#create_exam_form)，测评通常用 `relative`（每个选项一个分值）。`Rating` / `RatingField` 支持 `rating_max`（3/5/10），`LikertField` / `MatrixScaleField` 用 `statements: [{ label }]`。每个字段带唯一 `cid`——**维度绑定计分题靠 cid**。
+
+**evaluation_setting**
+
+| 字段 | 类型 | 说明 |
+| ---- | ---- | ---- |
+| `notice_after_filling_mode` | enum | 提交后展示：`reports` 测评报告（默认）/ `customize` / `none`。需套餐支持 |
+| `show_report_score` | bool | 报告显示总分 |
+| `show_report_radar` | bool | 报告显示维度雷达图（需配置维度） |
+| `show_indicator_comments` | bool | 报告显示各维度结果分析 |
+| `show_comments` | bool | 开启测评评语 |
+| `need_attention` | string | 测评须知 |
+| `success_message_rich_text` | string | 提交感谢文案（HTML，需套餐支持） |
+| `evaluation_comments` | array | 总分区间评语 `[{ start_point, end_point, comment, retry? }]`；**整体替换语义** |
+| `indicator_setting` | object | 维度设置，见下 |
+
+**indicator_setting（维度）**
+
+```json
+{
+  "indicators_scoring_mode": "summation",
+  "indicators": [
+    {
+      "name": "沟通能力",
+      "field_cids": ["q1x7a", "q2b3c"],
+      "standard_score": 80,
+      "indicator_comments": [{ "start_point": 0, "end_point": 40, "comment": "待提升" }]
+    }
+  ]
+}
+```
+
+- `indicators_scoring_mode`：维度得分 = 绑定题目`summation` 求和（默认）或 `average` 平均
+- 维度绑定计分题：**本次请求新建的字段用 `field_cids`**（保存时解析成 api_code），已存在的字段用 `field_api_codes`
+- `indicators` 是**整体替换语义**，且维度名 ≤ 20 字
+
+**输出**：同 create_form。
+
+---
+
+## edit_evaluation_form
+
+**用途**：编辑测评表单（create_evaluation_form 创建的或 evaluation 场景的表单）。**仅 evaluation 场景表单可用**，其他表单用 edit_form。
+
+**Scope**：`forms`
+
+**输入**：同 edit_exam_form 的结构（`form_token` 必填 + `name` / `description` / `fields{add,remove,update,update_choices}` / `evaluation_setting` / `setting`），fields 项形态同 create_evaluation_form。
+
+**关键语义**
+
+- answers 整体替换语义同 edit_exam_form
+- ⚠️ **更新维度必须回传 `api_code`**：维度（indicators）是整体替换的，已提交数据的维度得分挂在 `indicator_<api_code>` 下。先从 `get_form` 的 `setting.evaluation_setting.indicator_setting.indicators` 读出每个现存维度的 `api_code` 并原样回传，否则维度会被当成新建，**已提交答卷的维度得分会失效**
+- `LikertField` / `MatrixScaleField` 更新 `statements` 时同理带上 statement 的 `api_code` 保持身份
+
+**输出**：同 edit_form。
+
+---
+
 ## edit_theme
 
-**用途**：编辑表单视觉主题——颜色、背景、**头图**（外链 / Base64 / **AI 生成**）、字体、容器样式、提交按钮。
+**用途**：编辑表单视觉主题——颜色、背景、**头图**（外链 / 本地上传 / Base64 / **AI 生成**）、字体、容器样式、提交按钮。
 
 **Scope**：`form_setting`（⚠️ 独立 scope，不是 `forms`）
 
@@ -612,8 +829,11 @@
 | `text` | string | 头图区文字（type=text 时） |
 | `text_style` | object | `{ font_size, font_weight, color, text_align }` |
 | `background_color` | string | 头部背景色 |
-| `header_image_url` | string | **首选**：外链图片 URL，服务端下载创建附件 |
+| `header_image_upload_token` | string | 本地 / 会话内图片：先 [`prepare_header_image_upload`](#prepare_header_image_upload) 上传，再把 token 传进来 |
+| `header_image_url` | string | 外链图片 URL，服务端下载创建附件 |
 | `header_image_base64` | string | Base64 图片数据（⚠️ LLM 易截断，能不用就不用） |
+
+> 三个图片参数互斥，同时传时优先级：`header_image_upload_token` > `header_image_base64` > `header_image_url`。任一图片参数生效时 `type` 自动置为 `image`。
 
 **至少传一个改动操作，否则报 `No theme edit operations specified`。**
 
@@ -656,6 +876,91 @@
 - `Form cannot be found`
 - `No theme edit operations specified`
 - `Failed to update theme: <validation messages>`
+
+---
+
+## prepare_header_image_upload
+
+**用途**：把**只存在于本地 / 对话上下文中的图片**上传为表单头图。返回上传凭证后，调用方自行发 HTTP multipart 请求上传，再把 token 传给 `edit_theme`。
+
+**Scope**：`form_setting`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `filename` | string | ✅ | 原始文件名，如 `banner.png` |
+| `content_type` | string | ✅ | MIME 类型：`image/jpeg` / `image/png` / `image/gif` / `image/webp` |
+| `size` | integer | ✅ | 文件精确字节数 |
+
+**输出**
+
+```json
+{
+  "method": "POST",
+  "upload_url": "https://jinshuju.net/api/v1/header_image_attachments",
+  "headers": {},
+  "fields": { "header_image_token": "header_img_tok_..." },
+  "file_field": "file",
+  "header_image_token": "header_img_tok_...",
+  "expires_at": "2026-06-12T08:30:00Z"
+}
+```
+
+**使用流程**
+
+1. 按返回的 `method` + `upload_url` 发 multipart/form-data 请求：带上 `fields` 里的所有键值，文件放在名为 `file`（`file_field`）的字段里
+2. 上传成功（HTTP 201）后，把 `header_image_token` 作为 `edit_theme` 的 `header.header_image_upload_token` 传入
+3. **token 有效期 30 分钟**（见 `expires_at`），过期重新调用本工具；上传文件的 filename / content_type / size 必须与申请时完全一致
+
+**常见错误**
+
+- `header_image_token is invalid or expired; prepare upload again` — token 过期 / 未上传 / 不是当前用户申请的
+
+---
+
+## prepare_field_image_upload
+
+**用途**：把本地图片上传为**图片选项**（`ImageRadioButton` / `ImageCheckBox`）的选项配图。
+
+**Scope**：`forms`
+
+**输入 / 输出 / 流程**：与 [prepare_header_image_upload](#prepare_header_image_upload) 相同，差异：
+
+- `upload_url` 为 `POST /api/v1/field_image_attachments`，token 字段名为 `field_image_token`
+- 上传成功后，把 token 作为 `create_form` / `edit_form` 选项里的 `choices[].image_upload_token` 传入
+- 选项的 `image_upload_token` / `image_url` / `image_base64` 互斥，优先级依此顺序
+
+---
+
+## prepare_entry_attachment_upload
+
+**用途**：把本地文件上传后写入数据的**附件字段**（AttachmentField），配合 `create_entry` / `update_entry` 使用。比 base64 内联省上下文。
+
+**Scope**：`write_entries`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `form_token` | string | ✅ | |
+| `field_api_code` | string | ✅ | 附件字段的 api_code；表格内附件列传表格字段的 api_code |
+| `dimension_api_code` | string | 表格列时✅ | 表格字段内附件列的 api_code |
+| `filename` | string | ✅ | |
+| `content_type` | string | ✅ | |
+| `size` | integer | ✅ | 精确字节数 |
+
+**输出**：同 prepare_header_image_upload 的结构，`upload_url` 为 `POST /api/v1/forms/{form_token}/entry_attachments`，token 字段名为 `attachment_token`，`fields` 里还带 `field_api_code`（和可选 `dimension_api_code`）。
+
+**使用流程**
+
+1. multipart 上传成功（HTTP 201）后，在 `create_entry` / `update_entry` 的附件字段值里引用：`{ "field_5": [{ "attachment_token": "entry_att_tok_..." }] }`
+2. token 受附件字段的 `max_size` / `max_file_quantity` 配置约束，30 分钟过期，且绑定申请时的表单 / 字段 / 用户
+
+**常见错误**
+
+- `attachment_token is invalid or expired; prepare upload again`
+- `dimension_api_code is required when field is a table field`
 
 ---
 
@@ -813,7 +1118,7 @@ operator × 字段类型兼容矩阵：
 - `AddressField`：`{ province, city, district, street }`
 - `MultipleChoice`：api_code 数组
 - 写入会被忽略：`ESignatureField` / `FormulaField`（在 `NOT_SUPPORT_UPDATE_FIELDS` 黑名单内）
-- 写入受限：`AttachmentField` 需要 attachment_id，MCP 无文件上传通道
+- `AttachmentField`：先 [`prepare_entry_attachment_upload`](#prepare_entry_attachment_upload) 上传拿 token，再传 `[{ "attachment_token": "entry_att_tok_..." }]`；小文件也可内联 base64 `[{ "base64": "...", "file_name": "a.png", "content_type": "image/png" }]`（耗上下文，能不用就不用）；已有附件 id 可直接传。表格内附件列在行对象里用相同格式
 - `MobileField` 号段正则仍然跑——保留测试号段如 `13800138000` 会被 400 拒；MCP 路径下跳过短信验证码
 
 **输出**
@@ -1062,6 +1367,7 @@ OAuth metadata 端点：
 
 工具失败时抛 `StandardError`，消息会回流给 AI 客户端，常见前缀：
 
+- `Unknown parameter(s): <keys>. This tool only supports: <params>` — 传了工具未声明的参数（如给 list_forms 传 folder_token）；照错误信息列出的参数改
 - `Insufficient scope: <scope> required` — OAuth scope 不够
 - `Form cannot be found` — 表单不存在 / 无权访问
 - `Entry cannot be found` — 条目不存在
