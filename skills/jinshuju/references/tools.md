@@ -1,6 +1,6 @@
 # 金数据 MCP 工具完整参考
 
-本文档列出当前对外开放的 **22 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
+本文档列出当前对外开放的 **24 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
 
 > 工具的实际暴露名可能带客户端前缀（如 `mcp__jinshuju__list_forms`），按客户端实际名字调用即可，本文统一用裸名。
 
@@ -8,20 +8,20 @@
 
 | 类别 | 工具 |
 | ---- | ---- |
-| **Forms** | [`list_forms`](#list_forms) · [`list_folders`](#list_folders) · [`get_form`](#get_form) · [`create_form`](#create_form) · [`copy_form`](#copy_form) · [`move_form`](#move_form) · [`edit_form`](#edit_form) · [`edit_theme`](#edit_theme) |
+| **Forms** | [`list_forms`](#list_forms) · [`list_folders`](#list_folders) · [`get_form`](#get_form) · [`check_field_data`](#check_field_data) · [`create_form`](#create_form) · [`copy_form`](#copy_form) · [`move_form`](#move_form) · [`edit_form`](#edit_form) · [`edit_theme`](#edit_theme) |
 | **考试 / 测评** | [`create_exam_form`](#create_exam_form) · [`edit_exam_form`](#edit_exam_form) · [`create_evaluation_form`](#create_evaluation_form) · [`edit_evaluation_form`](#edit_evaluation_form) |
 | **上传** | [`prepare_form_image_upload`](#prepare_form_image_upload) · [`prepare_entry_attachment_upload`](#prepare_entry_attachment_upload) |
-| **Entries** | [`list_entries`](#list_entries) · [`get_entry`](#get_entry) · [`create_entry`](#create_entry) · [`update_entry`](#update_entry) · [`delete_entry`](#delete_entry) |
+| **Entries** | [`list_entries`](#list_entries) · [`get_entry`](#get_entry) · [`create_entry`](#create_entry) · [`create_entries`](#create_entries) · [`update_entry`](#update_entry) · [`delete_entry`](#delete_entry) |
 | **Account** | [`get_current_user`](#get_current_user) · [`get_current_billing_account`](#get_current_billing_account) · [`list_account_users`](#list_account_users) |
 
 ## OAuth Scope 速查
 
 | Scope | 涵盖工具 |
 | ----- | -------- |
-| `forms` | list_forms / list_folders / get_form / create_form / copy_form / move_form / edit_form / create_exam_form / edit_exam_form / create_evaluation_form / edit_evaluation_form / prepare_form_image_upload（type=field_choice） |
+| `forms` | list_forms / list_folders / get_form / check_field_data / create_form / copy_form / move_form / edit_form / create_exam_form / edit_exam_form / create_evaluation_form / edit_evaluation_form / prepare_form_image_upload（type=field_choice） |
 | `form_setting` | edit_theme / prepare_form_image_upload（type=header） |
 | `read_entries` | list_entries / get_entry |
-| `write_entries` | create_entry / update_entry / delete_entry / prepare_entry_attachment_upload |
+| `write_entries` | create_entry / create_entries / update_entry / delete_entry / prepare_entry_attachment_upload |
 | `user` | get_current_user |
 | `billing_account` | get_current_billing_account / list_account_users |
 
@@ -446,6 +446,8 @@
 
 **用途**：原子化地更新表单——可一次性改 name / description / setting / fields（字段增删改、选项增删改名）。
 
+> ⚠️ **删字段 / 选项前先用 [`check_field_data`](#check_field_data) 查是否有提交数据**——删除有数据的字段 / 选项会永久清除这些数据且不可恢复。`has_data=true` 时先把影响告诉用户、取得确认再删（human-in-the-loop）。edit_form 本身不做拦截、不需要任何 force 参数，直接删。
+
 **Scope**：`forms`
 
 **输入**
@@ -535,7 +537,7 @@
 
 #### `fields.remove: ["api_code", ...]`
 
-只传 api_code 列表；**不接受 label**。
+只传 api_code 列表；**不接受 label**。删除前先对每个 api_code 调 [`check_field_data`](#check_field_data)，有数据则向用户确认。
 
 ```json
 { "fields": { "remove": ["field_5", "field_7"] } }
@@ -559,7 +561,7 @@
 
 #### `fields.update_choices: []`
 
-选项字段的增删改名。**改文案永远用 `update`（保留 api_code）**，不要用 `remove` + `add`，否则历史数据引用失效。
+选项字段的增删改名。**改文案永远用 `update`（保留 api_code）**，不要用 `remove` + `add`，否则历史数据引用失效。`remove` 选项前先用 [`check_field_data`](#check_field_data)（带 `choice_value`）查该选项是否有数据，有则向用户确认。
 
 ```json
 {
@@ -624,6 +626,43 @@
 - `No edit operations specified` — 一个操作都没传
 - `Invalid field type: <Type>`
 - `Failed to update form: <validation messages>`
+- `Insufficient scope: forms required`
+
+---
+
+## check_field_data
+
+**用途**：删字段 / 选项前的只读预检查——查某个字段（或它的某个选项）是否已有提交数据。删除有数据的字段 / 选项会永久清除数据且不可恢复，所以 `edit_form` / `edit_exam_form` / `edit_evaluation_form` 执行 `fields.remove` 或 `fields.update_choices[].remove` **之前**，对每个删除目标先调本工具；`has_data=true` 时把影响告诉用户、取得确认后再删。与 PC 端删除前的检查（GraphQL `formFieldMeta.hasData`）同一套逻辑、同一结果。
+
+**Scope**：`forms`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `form_token` | string | ✅ | 表单 token 或 form id |
+| `field_api_code` | string | ✅ | 要检查的字段 api_code（来自 get_form）；矩阵 / 表格的列传该列 dimension 的 api_code，并配 `parent_field` |
+| `choice_value` | string | 否 | 只查某个选项时传该选项 api_code；省略则查整个字段是否有数据 |
+| `choice_type` | enum | 否 | 选项类型，默认 `choice`；矩阵题目 / 项目用 `statement` / `dimension`，级联用 `level_1`..`level_4`；仅配合 `choice_value` 时有意义 |
+| `parent_field` | string | 否 | 矩阵 / 表格列选项的父字段 api_code |
+| `check_extended_text` | bool | 否 | 为 true 时检查选项后的"其他"输入框是否有数据 |
+
+**输出**
+
+```json
+{ "form_token": "abCdEf", "field_api_code": "field_1", "field_label": "姓名", "has_data": true }
+```
+
+查选项时多返回 `choice_value`：
+
+```json
+{ "form_token": "abCdEf", "field_api_code": "field_2", "field_label": "状态", "has_data": false, "choice_value": "status_done" }
+```
+
+**常见错误**
+
+- `Field not found: <api_code>` — 字段不存在，先 get_form 看当前字段
+- `Form cannot be found`
 - `Insufficient scope: forms required`
 
 ---
@@ -708,6 +747,7 @@
 - `fields.update` 里**传任意一个 `answers` / `answer_setting_mode` / `answer_explanation` 都会重建该题的整个答案库**——必须传完整 answers 列表，不能只传增量
 - 改选项导致正确答案变化时，在**同一请求**里通过 `fields.update` 传新的完整 answers
 - 改选项文案用 `update_choices.update`（保留 api_code），不要 remove + add
+- 删题目 / 选项前先用 [`check_field_data`](#check_field_data) 查是否有数据，有则向用户确认
 - 先 `get_form` 读出现有题目结构（含 `customized_type`、按选项 value 的 `answers`）再改
 
 **输出**：同 edit_form。
@@ -796,6 +836,7 @@
 - answers 整体替换语义同 edit_exam_form
 - ⚠️ **更新维度必须回传 `api_code`**：维度（indicators）是整体替换的，已提交数据的维度得分挂在 `indicator_<api_code>` 下。先从 `get_form` 的 `setting.evaluation_setting.indicator_setting.indicators` 读出每个现存维度的 `api_code` 并原样回传，否则维度会被当成新建，**已提交答卷的维度得分会失效**
 - `LikertField` / `MatrixScaleField` 更新 `statements` 时同理带上 statement 的 `api_code` 保持身份
+- 删字段 / 选项前先用 [`check_field_data`](#check_field_data) 查是否有数据，有则向用户确认
 
 **输出**：同 edit_form。
 
@@ -1147,6 +1188,62 @@ operator × 字段类型兼容矩阵：
 - `Entry attributes cannot be empty` — `entry` 是 `{}` 或全是未知 key
 - `Form has reached entries limit` — 表单达条目上限
 - 字段 validation 错误（required 缺失 / Email 格式 / Choice 无效值 / Mobile 号段 等）— 错误信息含 `<字段>` + 具体原因
+- `Insufficient scope: write_entries required`
+
+---
+
+## create_entries
+
+**用途**：一次给指定表单新增多条数据。导入大量记录时**优先用本工具**，而不是循环调 `create_entry`——单次请求搞定，省去 N 次往返和 N 份冗长返回。
+
+**Scope**：`write_entries`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `form_token` | string | ✅ | |
+| `entries` | array | ✅ | 数据对象数组，最多 **200** 条；每个元素是 `{ api_code: value }`，格式与 [`create_entry`](#create_entry) 的 `entry` 完全一致 |
+
+字段值规范与 [`create_entry`](#create_entry) 一致（key 必须是 `api_code`、选项传选项 `api_code`、`ESignatureField` / `FormulaField` 写入被忽略 等）。
+
+**行为要点**
+
+- **部分成功**：逐条校验，通过的写入、失败的跳过，并在 `errors` 中按数组下标返回原因；只要有一条成功就返回 `ok: true`。
+- **不幂等**：重复调用会产生重复数据，本工具不做去重 / upsert。
+- 批量写入复用 Excel 导入引擎，**跳过逐条 save 回调**，公式字段写入后异步重算。
+- 只返回汇总（`created_count` + 每条错误），**不返回写入后的完整 entries**——要看明细另行 `list_entries`。
+
+**输出**
+
+```json
+{ "ok": true, "created_count": 2, "errors": [] }
+```
+
+部分成功时 `errors` 按下标返回：
+
+```json
+{ "ok": true, "created_count": 1, "errors": [{ "index": 1, "reason": "姓名 不能为空" }] }
+```
+
+**调用示例**
+
+```json
+{
+  "form_token": "abCdEf",
+  "entries": [
+    { "field_1": "张三", "field_2": "13812345678", "field_3": "city_sh" },
+    { "field_1": "李四", "field_2": "13800000000", "field_3": "city_bj" }
+  ]
+}
+```
+
+**常见错误**
+
+- `Form cannot be found`
+- `Entries cannot be empty` — `entries` 为空数组
+- `A batch can contain at most 200 entries` — 超过单批上限，自行分批
+- `This form has reached its entry limit, ...` — 写入后会超表单条目上限，整批不写入
 - `Insufficient scope: write_entries required`
 
 ---

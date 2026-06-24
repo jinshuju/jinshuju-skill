@@ -4,7 +4,7 @@ description: >
   Operate on the user's 金数据 (Jinshuju, jinshuju.net) hosted online form
   platform via the Jinshuju MCP: create/copy/edit forms and themes, including
   exam forms with auto-grading and evaluation forms with scored choices; query,
-  create, update, delete or bulk-update entries; upload local images or files
+  create (single or in bulk), update, delete or bulk-update entries; upload local images or files
   via upload tokens; check the account's plan quota or team members. Use ONLY when the user is acting
   on their 金数据 platform data — signaled by mentioning 金数据/Jinshuju/
   jinshuju.net, providing a form_token, or asking to operate a form or entries
@@ -66,7 +66,8 @@ metadata:
 | 上传文件写入附件字段 | `prepare_entry_attachment_upload` |
 | 列出数据 | `list_entries` |
 | 查看单条数据 | `get_entry` |
-| 新建数据 | `create_entry` |
+| 新建数据（单条） | `create_entry` |
+| 批量新建数据（一次最多 200 条） | `create_entries` |
 | 更新数据（单条） | `update_entry` |
 | 删除数据（单条） | `delete_entry` |
 | 当前用户信息 | `get_current_user` |
@@ -128,6 +129,15 @@ metadata:
 4. 每 20 条汇报进度
 ```
 
+**⑤ 批量导入数据**
+```
+1. get_form → 拿目标字段 api_code + 选项 api_code
+2. 把每行整理成 { api_code: value } 对象（选项传 api_code）
+3. create_entries 一次提交（每批 ≤200，超过自行分批循环）
+4. 读返回的 created_count + errors（按下标），向用户汇总成功/失败
+   注意：不幂等，重复提交会产生重复数据；失败后不要整批重发，按 errors 下标只补失败行
+```
+
 ### 关键格式规范
 
 **entry payload 的键是 `api_code`，不是中文 label：**
@@ -162,11 +172,13 @@ metadata:
 - **`operator` 与字段类型不匹配** → 400，错误信息会列出该字段的可用 operator，照着改
 - **简单字段包成对象**（`{"value": "张三"}`）→ 直接传字符串
 - **TableField 按二维数组传** → 必须是对象数组，键是 dimension 的 `api_code`
-- **`update_entry` / `delete_entry` 找批量版本** → 没有，只支持单条，批量逐条循环
+- **批量新建数据循环调 `create_entry`** → 改用 `create_entries` 一次提交（≤200 条/批，超过自行分批）；它部分成功、按下标返回 `errors`、不幂等（重复调会生成重复数据）
+- **`update_entry` / `delete_entry` 找批量版本** → 没有，只支持单条，批量逐条循环（仅**新建**有批量版 `create_entries`）
 - **测试号段**（`13800138000`）→ 号段正则校验 400 拒；用真实在用号段
 - **删除整张表单** → MCP 不支持 `delete_form`，引导用户去后台手动操作
 - **`ESignatureField` / `FormulaField` 写入 entry** → 服务端忽略，写入无效
 - **改选项文案用 remove + add** → 会换 api_code，历史数据引用失效；改名用 `fields.update_choices.update`
+- **删字段 / 选项不先查数据** → 删有提交数据的字段 / 选项会永久清除数据且不可恢复；`fields.remove` / `update_choices.remove` 前先对每个目标用 `check_field_data` 查，`has_data=true` 时把影响告诉用户、确认后再删（edit_form 本身不拦截）
 - **用 create_form 建考试/测评** → scene 枚举已移除 exam / evaluation；用 `create_exam_form` / `create_evaluation_form`
 - **考试开限时又把题目设必填** → `show_timeout=true` 与题目字段 `required` 互斥；默认不开限时，仅用户明确要求时开
 - **FormulaField 引用同一请求新增的字段** → 新字段还没有 api_code，公式里用 `<gd-field data-cid="...">` 引用其 `cid`，不要猜 api_code
@@ -178,6 +190,7 @@ metadata:
 操作完成后确认：
 - **创建/编辑表单**：返回中包含有效 `form_token`，可访问 `https://jinshuju.net/f/{form_token}`
 - **create_entry**：返回包含 `serial_number`（整数）
+- **create_entries**：返回 `created_count` 与提交条数一致，`errors` 为空（有部分失败时按下标核对原因）
 - **update_entry**：返回的字段值与提交值一致
 - **delete_entry**：后续 `get_entry` 返回 404 或条目不再出现在 `list_entries`
 - **批量操作**：向用户汇报"共 N 条，成功 X 条，失败 Y 条"

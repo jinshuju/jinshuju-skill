@@ -51,6 +51,8 @@
 **AI 调用**：`list_forms`（name 正则匹配） → `copy_form` → `get_form`（拿到旧字段的 api_code，确认"签到"字段的 api_code 再 remove） → `edit_form`（`fields: { remove: [签到字段.api_code], add: [{type:"RadioButton", label:"是否带家属", choices:[{value:"是"},{value:"否"}]}] }`）
 
 > ⚠️ `fields.remove` 传的是 api_code 数组，不是 label。
+>
+> ⚠️ 这里删的是刚复制出来的新表（没有数据），可直接删。但若是删一张**已有提交数据**的表单的字段 / 选项，必须先用 `check_field_data` 查，`has_data=true` 时把影响告诉用户、确认后再删。
 
 ---
 
