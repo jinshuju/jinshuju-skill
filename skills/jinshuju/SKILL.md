@@ -1,7 +1,7 @@
 ---
 name: jinshuju
 description: "Operate on the user's 金数据 (Jinshuju, jinshuju.net) hosted online form platform via the Jinshuju MCP: create/copy/edit forms and themes, including exam forms with auto-grading and evaluation forms with scored choices; query, create (single or in bulk), update, delete or bulk-update entries; upload local images or files via upload tokens; check the account's plan quota or team members. Use ONLY when the user is acting on their 金数据 platform data — signaled by mentioning 金数据/Jinshuju/jinshuju.net, providing a form_token, or asking to operate a form or entries already hosted there. Do NOT use for building form/survey software in code, processing local files or spreadsheets, image/receipt OCR, logistics or monitoring systems, or generic data work unrelated to the 金数据 platform."
-version: 1.5.0
+version: 1.5.1
 author: Jinshuju
 license: MIT
 platforms: [macos, linux, windows]
