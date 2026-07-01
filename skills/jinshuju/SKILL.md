@@ -1,7 +1,7 @@
 ---
 name: jinshuju
-description: "Operate on the user's 金数据 (Jinshuju, jinshuju.net) hosted online form platform via the Jinshuju MCP: create/copy/edit forms and themes, including exam forms with auto-grading and evaluation forms with scored choices; query, create (single or in bulk), update, delete or bulk-update entries; upload local images or files via upload tokens; check the account's plan quota or team members. Use ONLY when the user is acting on their 金数据 platform data — signaled by mentioning 金数据/Jinshuju/jinshuju.net, providing a form_token, or asking to operate a form or entries already hosted there. Do NOT use for building form/survey software in code, processing local files or spreadsheets, image/receipt OCR, logistics or monitoring systems, or generic data work unrelated to the 金数据 platform."
-version: 1.5.1
+description: "通过金数据（Jinshuju，jinshuju.net）MCP 操作用户托管在金数据平台上的在线表单：创建 / 复制 / 编辑表单与主题，含自动判分的考试表单、选项计分的测评表单；查询、新增（单条或批量）、更新、删除、批量修改数据；用上传凭证上传本地图片或文件；查询账户套餐额度与团队成员。仅在用户操作其金数据平台数据时使用——触发信号：提到 金数据 / Jinshuju / jinshuju.net、给出 form_token，或要操作一张已托管在金数据上的表单或数据。不要用于：用代码开发表单 / 问卷系统、处理本地文件或表格（Excel / CSV）、图片 / 票据 OCR、物流或监控等与平台无关的自动化，以及与金数据平台无关的通用数据处理。"
+version: 1.6.0
 author: Jinshuju
 license: MIT
 platforms: [macos, linux, windows]
@@ -55,6 +55,8 @@ metadata:
 | 上传本地图片（头图 / 选项配图） | `prepare_form_image_upload` |
 | 上传文件写入附件字段 | `prepare_entry_attachment_upload` |
 | 列出数据 | `list_entries` |
+| 列出我填写 / 提交过的表单 | `list_my_submitted_forms` |
+| 列出我在某表单提交的数据 | `list_my_submitted_entries` |
 | 查看单条数据 | `get_entry` |
 | 新建数据（单条） | `create_entry` |
 | 批量新建数据（一次最多 200 条） | `create_entries` |
@@ -168,6 +170,8 @@ metadata:
 - **删除整张表单** → MCP 不支持 `delete_form`，引导用户去后台手动操作
 - **`ESignatureField` / `FormulaField` 写入 entry** → 服务端忽略，写入无效
 - **改选项文案用 remove + add** → 会换 api_code，历史数据引用失效；改名用 `fields.update_choices.update`
+- **选择字段设默认选中用 `predefined_value`** → 选择类字段（单选 / 多选 / 下拉 / 级联）不接受 `predefined_value`；默认选中改用 `choices[].selected: true`
+- **字段显示规则 comparator 跟触发字段类型不匹配**（如选择字段用 `like`）→ 整批 `field_rules` 被拒；选择类用 `equal` / `none_in`、评分 / NPS 用 `between`、文本类用 `like` / `not_like`
 - **删字段 / 选项不先查数据** → 删有提交数据的字段 / 选项会永久清除数据且不可恢复；`fields.remove` / `update_choices.remove` 前先对每个目标用 `check_field_data` 查，`has_data=true` 时把影响告诉用户、确认后再删（edit_form 本身不拦截）
 - **用 create_form 建考试/测评** → scene 枚举已移除 exam / evaluation；用 `create_exam_form` / `create_evaluation_form`
 - **考试开限时又把题目设必填** → `show_timeout=true` 与题目字段 `required` 互斥；默认不开限时，仅用户明确要求时开

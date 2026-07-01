@@ -1,6 +1,6 @@
 # 金数据 MCP 工具完整参考
 
-本文档列出当前对外开放的 **24 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
+本文档列出当前对外开放的 **26 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
 
 > 工具的实际暴露名可能带客户端前缀（如 `mcp__jinshuju__list_forms`），按客户端实际名字调用即可，本文统一用裸名。
 
@@ -8,19 +8,19 @@
 
 | 类别 | 工具 |
 | ---- | ---- |
-| **Forms** | [`list_forms`](#list_forms) · [`list_folders`](#list_folders) · [`get_form`](#get_form) · [`check_field_data`](#check_field_data) · [`create_form`](#create_form) · [`copy_form`](#copy_form) · [`move_form`](#move_form) · [`edit_form`](#edit_form) · [`edit_theme`](#edit_theme) |
+| **Forms** | [`list_forms`](#list_forms) · [`list_my_submitted_forms`](#list_my_submitted_forms) · [`list_folders`](#list_folders) · [`get_form`](#get_form) · [`check_field_data`](#check_field_data) · [`create_form`](#create_form) · [`copy_form`](#copy_form) · [`move_form`](#move_form) · [`edit_form`](#edit_form) · [`edit_theme`](#edit_theme) |
 | **考试 / 测评** | [`create_exam_form`](#create_exam_form) · [`edit_exam_form`](#edit_exam_form) · [`create_evaluation_form`](#create_evaluation_form) · [`edit_evaluation_form`](#edit_evaluation_form) |
 | **上传** | [`prepare_form_image_upload`](#prepare_form_image_upload) · [`prepare_entry_attachment_upload`](#prepare_entry_attachment_upload) |
-| **Entries** | [`list_entries`](#list_entries) · [`get_entry`](#get_entry) · [`create_entry`](#create_entry) · [`create_entries`](#create_entries) · [`update_entry`](#update_entry) · [`delete_entry`](#delete_entry) |
+| **Entries** | [`list_entries`](#list_entries) · [`list_my_submitted_entries`](#list_my_submitted_entries) · [`get_entry`](#get_entry) · [`create_entry`](#create_entry) · [`create_entries`](#create_entries) · [`update_entry`](#update_entry) · [`delete_entry`](#delete_entry) |
 | **Account** | [`get_current_user`](#get_current_user) · [`get_current_billing_account`](#get_current_billing_account) · [`list_account_users`](#list_account_users) |
 
 ## OAuth Scope 速查
 
 | Scope | 涵盖工具 |
 | ----- | -------- |
-| `forms` | list_forms / list_folders / get_form / check_field_data / create_form / copy_form / move_form / edit_form / create_exam_form / edit_exam_form / create_evaluation_form / edit_evaluation_form / prepare_form_image_upload（type=field_choice） |
+| `forms` | list_forms / list_my_submitted_forms / list_folders / get_form / check_field_data / create_form / copy_form / move_form / edit_form / create_exam_form / edit_exam_form / create_evaluation_form / edit_evaluation_form / prepare_form_image_upload（type=field_choice） |
 | `form_setting` | edit_theme / prepare_form_image_upload（type=header） |
-| `read_entries` | list_entries / get_entry |
+| `read_entries` | list_entries / list_my_submitted_entries / get_entry |
 | `write_entries` | create_entry / create_entries / update_entry / delete_entry / prepare_entry_attachment_upload |
 | `user` | get_current_user |
 | `billing_account` | get_current_billing_account / list_account_users |
@@ -72,6 +72,48 @@
 
 ---
 
+## list_my_submitted_forms
+
+**用途**：列出当前用户作为**填写者**提交过数据的表单（不一定是所有者），按最近提交时间倒序。用户模糊说"我填过的那张表单"时用这个。
+
+**Scope**：`forms`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `next` | integer | 否 | 翻页偏移量（上次响应里的 `next`） |
+| `limit` | integer | 否 | 默认 50，最大 50 |
+
+**输出**
+
+```json
+{
+  "total": 3,
+  "count": 3,
+  "data": [
+    {
+      "name": "2026 客户满意度调查",
+      "description": "季度回访",
+      "token": "abCdEf",
+      "form_url": "https://jinshuju.net/f/abCdEf",
+      "scene": "survey",
+      "submitted_entries_count": 2,
+      "last_submitted_at": "2026-06-20T10:00:00+08:00"
+    }
+  ],
+  "next": null
+}
+```
+
+> 排除快捷支付（quickpay）表单。别人拥有、你只是填写者的表单也会出现在这里。
+
+**常见错误**
+
+- `Insufficient scope: forms required`
+
+---
+
 ## list_folders
 
 **用途**：列出当前用户能管理的文件夹，**只为给 create_form / copy_form / move_form 拿 folder_token 用**。
@@ -116,6 +158,9 @@
 | 参数 | 类型 | 必填 | 说明 |
 | ---- | ---- | ---- | ---- |
 | `token` | string | ✅ | 表单 token **或** form id（数字 ID 也接受） |
+| `include_theme` | bool | 否 | 是否返回 `theme`（页头 / 配色 / 字体等样式）。默认 `false` |
+| `include_setting` | bool | 否 | 是否返回 `setting`（提交行为 / 关闭规则 / 通知规则 / 考试测评设置 / 字段显示规则）。默认 `false` |
+| `include_field_rules` | bool | 否 | 是否返回字段显示规则 `field_rules`。默认 `false` |
 
 **输出**
 
@@ -184,9 +229,11 @@
 }
 ```
 
-> 字段特有属性（如 `goods_items` / `reservation_items` / `associated_form_token` / `predefined_value` / `placeholder` / `range_min/max` / `precision` / `media_type` / `max_size` 等）按字段类型出现在对应 field 节点上。
+> ⚠️ **默认只返回核心信息**（`name` / `token` / `form_url` / `description` / `fields`）。`theme` / `setting` / `field_rules` 三块体积大，默认**不返回**，需分别传 `include_theme` / `include_setting` / `include_field_rules=true` 才带上。只为拿字段结构（`api_code`）时保持默认即可。
 >
-> 另外：`setting.field_rules` 返回字段显示规则（结构见 [edit_form](#edit_form)）；考试 / 测评表单还会返回 `setting.exam_setting` / `setting.evaluation_setting`（结构与 [`create_exam_form`](#create_exam_form) / [`create_evaluation_form`](#create_evaluation_form) 的同名入参对齐，题目字段带 `customized_type` 和按选项 value 序列化的 `answers`）——重写 answers / indicators 这类整体替换列表前，先用 get_form 读出现状。
+> 字段特有属性（如 `goods_items` / `reservation_items` / `associated_form_token` / `predefined_value` / `placeholder` / `range_min/max` / `precision` / `media_type` / `max_size` 等）按字段类型出现在对应 field 节点上。选项字段的 `choices[]` 中，「其他」选项（扩展输入）会带 `"is_other": true`，普通选项不带该键；预约字段 `daily_time_range_quotas` 的时刻以零填充字符串返回（`"09"` 而非 `9`）。
+>
+> 另外：传 `include_field_rules=true` 时返回顶层 `field_rules`（字段显示规则，结构见 [edit_form](#edit_form)）；`include_setting=true` 时考试 / 测评表单还会返回 `setting.exam_setting` / `setting.evaluation_setting`（结构与 [`create_exam_form`](#create_exam_form) / [`create_evaluation_form`](#create_evaluation_form) 的同名入参对齐，题目字段带 `customized_type` 和按选项 value 序列化的 `answers`）——重写 answers / indicators 这类整体替换列表前，先用 get_form 读出现状。
 
 **常见错误**
 
@@ -225,11 +272,12 @@
 | `private` | bool | 是否隐藏，设 true 时 `required` 自动置 false |
 | `unique` | bool | 不允许重复值。仅 `TextField` / `NameField` / `EmailField` / `MobileField` / `TelephoneField` / `IdCardField` / `LinkField` / `FormAssociation` 支持 |
 | `notes` | string | 字段提示文案（SectionBreak 时是描述正文） |
-| `choices` | array | 选项字段用：`[{ value, quota?, operand_value?, image_url?, image_upload_token?, sub_choices? }]`。`operand_value`（选项赋值）配合字段 `calculable=true` 给每个选项赋数值，供 FormulaField 计算——开启 calculable 后**每个选项都必须给** `operand_value`；`image_upload_token` 见 [prepare_form_image_upload](#prepare_form_image_upload) |
+| `choices` | array | 选项字段用：`[{ value, quota?, selected?, operand_value?, image_url?, image_upload_token?, sub_choices? }]`。`selected: true` 设**默认选中**——RadioButton / DropDown / ImageRadioButton 仅一项生效，CheckBox / ImageCheckBox 可多项，CascadeDropDown 沿选中路径每级节点都设 `selected: true`。`operand_value`（选项赋值）配合字段 `calculable=true` 给每个选项赋数值，供 FormulaField 计算——开启 calculable 后**每个选项都必须给** `operand_value`；`image_upload_token` 见 [prepare_form_image_upload](#prepare_form_image_upload) |
 | `statements` | array | 矩阵类用：`[{ label }]` |
 | `dimensions` | array | TableField / MatrixField 用 |
 | `rating_max` | int | RatingField / MatrixScaleField 用，3/5/10 |
-| `predefined_value` | string / object | 默认值，类型见对应字段说明 |
+| `predefined_value` | string / object | 默认值，类型见对应字段说明。**选择类字段（单选 / 多选 / 下拉 / 级联）不接受**，默认选中改用 `choices[].selected` |
+| `other_choice_required` | bool | 选了「其他」选项后必须填写其扩展文本框（"其他选项必填"校验）。默认 false。仅 `RadioButton` / `CheckBox` / `DropDown` 且含「其他」选项时生效，其余类型忽略 |
 | `placeholder` | string | 占位文本 |
 | `range_min` / `range_max` | number | NumberField 取值范围 |
 | `precision` | int / string | NumberField (0-14) 或 DateTimeField (`year`/`month`/`day`/`hour`/`minute`/`second`) |
@@ -333,6 +381,8 @@
       "available_days_of_week": ["monday", "tuesday", "wednesday", "thursday", "friday"],
       "time_range_mode": "same_by_wday",
       "show_left_quota": true,
+      "start_time_offset": { "offset_number": 1, "unit": "day" },
+      "end_time_offset": { "offset_number": 14, "unit": "day" },
       "daily_time_range_quotas": [
         { "quota": 5, "start_time": { "hour": 9, "minute": 0 }, "end_time": { "hour": 12, "minute": 0 } },
         { "quota": 5, "start_time": { "hour": 14, "minute": 0 }, "end_time": { "hour": 17, "minute": 0 } }
@@ -341,6 +391,8 @@
   }]
 }
 ```
+
+> `start_time_offset` = 提前预约要求（须提前 N 天 / 小时预约）；`end_time_offset` = 未来可约窗口（未来可约 N 天 / 小时内）；`unit` 取 `day` / `hour`，省略则无对应限制。`start_time` / `end_time` 传 `{ hour, minute }` 整数即可，`get_form` 读回时时刻是零填充字符串（`"09"`）。
 
 ```json
 {
@@ -545,13 +597,13 @@
 
 #### `fields.update: []`
 
-每项必须有 `api_code`，可修改 label / required / private / notes / 类型专属属性。**改 TableField / MatrixField 的 dimensions / statements 时必须带 dimension/statement 的 api_code**，否则旧数据引用会失效。
+每项必须有 `api_code`，可修改 label / required / private / notes / unique / other_choice_required / 类型专属属性。**改 TableField / MatrixField 的 dimensions / statements 时必须带 dimension/statement 的 api_code**，否则旧数据引用会失效。传 `position`（0-based 整数）可把已存在字段移到新位置，保留 api_code 和数据；在 `fields.add` 插入之后应用，多个 `position` 按升序执行，越界钳到末尾。
 
 ```json
 {
   "fields": {
     "update": [
-      { "api_code": "field_1", "label": "全名", "required": true },
+      { "api_code": "field_1", "label": "全名", "required": true, "position": 0 },
       { "api_code": "field_3", "notes": "请填整数" },
       { "api_code": "field_8", "media_type": { "type": "custom", "value": ["pdf", "docx"] }, "max_size": 10 }
     ]
@@ -561,7 +613,7 @@
 
 #### `fields.update_choices: []`
 
-选项字段的增删改名。**改文案永远用 `update`（保留 api_code）**，不要用 `remove` + `add`，否则历史数据引用失效。`remove` 选项前先用 [`check_field_data`](#check_field_data)（带 `choice_value`）查该选项是否有数据，有则向用户确认。
+选项字段的增删改名。**改文案永远用 `update`（保留 api_code）**，不要用 `remove` + `add`，否则历史数据引用失效。切换选项的**默认选中**也用 `update`（带 `api_code` + `selected`）；`add` 的新选项也可带 `selected`。`remove` 选项前先用 [`check_field_data`](#check_field_data)（带 `choice_value`）查该选项是否有数据，有则向用户确认。
 
 ```json
 {
@@ -571,7 +623,7 @@
         "field_api_code": "field_status",
         "add": [{ "value": "已签约", "quota": 100 }],
         "remove": [{ "api_code": "status_obsolete" }],
-        "update": [{ "api_code": "status_contacted", "value": "已联系过", "operand_value": 3 }]
+        "update": [{ "api_code": "status_contacted", "value": "已联系过", "selected": true, "operand_value": 3 }]
       }
     ]
   }
@@ -603,10 +655,10 @@
 | `targets_display_mode` | `show`（命中条件时显示目标字段）/ `abort`（命中条件时终止填写） |
 | `operator` | 多条件组合方式 `and` / `or`，默认 `or` |
 | `conditions[].trigger` | 触发字段 api_code |
-| `conditions[].comparator` | `equal` / `none_in` / `between` / `like` / `not_like`，默认 `equal` |
+| `conditions[].comparator` | **必须匹配触发字段类型**，否则整批规则被拒（报 `Field "<label>" does not support comparator "<x>"; available comparators: ...`）。选择类字段（单选 / 多选 / 下拉 / 级联 / 排序 / 预约 / 表单关联）用 `equal`（包含任一）/ `none_in`（都不包含）；评分 / NPS 用 `between`（数值区间）；文本类（文本 / 多行 / 邮箱 / 手机 / 座机 / 链接 / 身份证）用 `like` / `not_like`。**省略时按字段类型取主 comparator**：选择→`equal`、评分 / NPS→`between`、文本→`like`（不再一律默认 `equal`） |
 | `conditions[].value` | 按 comparator 取标量 / 数组 |
 
-注意：目标字段在表单顺序上必须位于触发字段**之后**，否则该规则被静默丢弃；目标字段必须保持**普通字段（`private=false`）**——显示规则自己负责"默认隐藏、命中条件才显示"，而 `private=true` 的隐藏字段对外永远不可见，设了规则也不会显示。⚠️ 工具 schema 描述里 "mark fields you want to reveal as private=true" 一句有误，勿照做。当前规则可从 `get_form` 的 `setting.field_rules` 读取。
+注意：目标字段在表单顺序上必须位于触发字段**之后**，否则该规则被静默丢弃；目标字段必须保持**普通字段（`private=false`）**——显示规则自己负责"默认隐藏、命中条件才显示"，而 `private=true` 的隐藏字段对外永远不可见，设了规则也不会显示。⚠️ 工具 schema 描述里 "mark fields you want to reveal as private=true" 一句有误，勿照做。当前规则传 `include_field_rules=true` 从 `get_form` 的 `field_rules` 读取。
 
 ### 输出
 
@@ -1093,6 +1145,29 @@ operator × 字段类型兼容矩阵：
 
 ---
 
+## list_my_submitted_entries
+
+**用途**：列出当前用户在指定表单里**自己提交**的数据条目，按提交时间倒序。即使该表单不属于你、你只是填写者也能用（结果只含你自己的条目）。
+
+**Scope**：`read_entries`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `form_token` | string | ✅ | 表单 token 或 form id |
+| `next` | integer | 否 | 翻页偏移量（上次响应里的 `next`） |
+| `limit` | integer | 否 | 默认 50，最大 50 |
+
+**输出**：结构同 [`list_entries`](#list_entries)（`total` / `count` / `data[]` / `next`），`data` 里只含你自己提交的条目，`next` 是整数偏移游标。
+
+**常见错误**
+
+- `Form not found — check the token.`
+- `Insufficient scope: read_entries required`
+
+---
+
 ## get_entry
 
 **用途**：拿单条 entry 的完整字段值。
@@ -1391,10 +1466,15 @@ operator × 字段类型兼容矩阵：
     "sms": { "total_quota": 1000, "total_balance": 800, "month_balance": 200, "consumed_quota": 200 },
     "active_mail": { "total_quota": 500, "total_balance": 450, "month_balance": 50, "consumed_quota": 50 },
     "entry_quota": { "total_quota": 50000, "total_balance": 45000, "month_balance": 2000, "consumed_quota": 5000 },
-    "storage_quota": { "total_quota": 10240, "total_balance": 8000, "month_balance": 1000, "consumed_quota": 2240 }
+    "storage_quota": { "total_quota": 10240, "total_balance": 8000, "month_balance": 1000, "consumed_quota": 2240 },
+    "ai_points": { "total_quota": 1000, "total_balance": 700, "month_balance": 100, "consumed_quota": 300 },
+    "audio_quota": { "total_quota": 3600, "total_balance": 3000, "month_balance": 600, "consumed_quota": 600 },
+    "entry_transaction_quota": { "unlimited": true, "consumed_quota": 128000 }
   }
 }
 ```
+
+> `usage` 各项均为**原始内部单位**：`ai_points`（AI 点数）、`audio_quota` 单位是**秒**、`entry_transaction_quota`（月度收款交易额）单位是**分**（cents），展示前自行换算。无限额套餐的项返回 `{ "unlimited": true, "consumed_quota": <n> }`，此时**不含** `total_quota` / `total_balance` / `month_balance`。
 
 **常见错误**
 
