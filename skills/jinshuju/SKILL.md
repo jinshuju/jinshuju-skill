@@ -1,7 +1,7 @@
 ---
 name: jinshuju
 description: "通过金数据（Jinshuju，jinshuju.net）MCP 操作用户托管在金数据平台上的在线表单：创建 / 复制 / 编辑表单与主题，含自动判分的考试表单、选项计分的测评表单；查询、新增（单条或批量）、更新、删除、批量修改数据；用上传凭证上传本地图片或文件；查询账户套餐额度与团队成员。仅在用户操作其金数据平台数据时使用——触发信号：提到 金数据 / Jinshuju / jinshuju.net、给出 form_token，或要操作一张已托管在金数据上的表单或数据。不要用于：用代码开发表单 / 问卷系统、处理本地文件或表格（Excel / CSV）、图片 / 票据 OCR、物流或监控等与平台无关的自动化，以及与金数据平台无关的通用数据处理。"
-version: 1.6.0
+version: 1.6.1
 author: Jinshuju
 license: MIT
 platforms: [macos, linux, windows]
@@ -155,6 +155,8 @@ metadata:
 | `like` / `not_like` | 文本、选项 | 子串（**不带 % 通配符**） |
 | `null` / `not_null` | 所有 | 省略 |
 
+> 特殊字段：`created_at`（创建时间，配 `gte` / `between` 等）；`creator_id`（提交者用户 id，**只支持 `eq`**，value 是 entry 返回的 `creator_id` 字符串）——按提交者查数据用它。
+
 ## Pitfalls
 
 - **entry 键写成中文 label** → 服务端静默丢弃，报 "Entry attributes cannot be empty"；键必须是 `api_code`
@@ -172,6 +174,7 @@ metadata:
 - **改选项文案用 remove + add** → 会换 api_code，历史数据引用失效；改名用 `fields.update_choices.update`
 - **选择字段设默认选中用 `predefined_value`** → 选择类字段（单选 / 多选 / 下拉 / 级联）不接受 `predefined_value`；默认选中改用 `choices[].selected: true`
 - **字段显示规则 comparator 跟触发字段类型不匹配**（如选择字段用 `like`）→ 整批 `field_rules` 被拒；选择类用 `equal` / `none_in`、评分 / NPS 用 `between`、文本类用 `like` / `not_like`
+- **只传新增的那条 `field_rules`** → 是全量替换、不是合并，会**静默清空其余已有规则且无法回滚**；改动前先 `get_form`（带 `include_field_rules=true`）读全量 → 合并 → 回传完整列表
 - **删字段 / 选项不先查数据** → 删有提交数据的字段 / 选项会永久清除数据且不可恢复；`fields.remove` / `update_choices.remove` 前先对每个目标用 `check_field_data` 查，`has_data=true` 时把影响告诉用户、确认后再删（edit_form 本身不拦截）
 - **用 create_form 建考试/测评** → scene 枚举已移除 exam / evaluation；用 `create_exam_form` / `create_evaluation_form`
 - **考试开限时又把题目设必填** → `show_timeout=true` 与题目字段 `required` 互斥；默认不开限时，仅用户明确要求时开

@@ -634,6 +634,8 @@
 
 按触发字段的值显示目标字段，或终止填写。**整体替换语义**：传 `field_rules` 会清空现有全部规则按数组重建；传 `[]` 清空所有规则；不传则保持不变。
 
+> ⚠️ **是全量替换、不是合并，且无法撤销**：要"加一条 / 改一条"规则而不动其余，**必须先** `get_form`（带 `include_field_rules=true`）读出当前全部规则，把改动合并进完整列表，再把**完整列表**回传。只传新规则会把已有规则全部删掉，且没有历史可回滚。
+
 ```json
 {
   "field_rules": [
@@ -1086,6 +1088,7 @@
 3. **filters 中含 `created_at` 时，结果按 `created_at` 升序**；否则按 `serial_number` 升序
 4. **不支持任意字段排序**——倒序 / 取前 N 在本地处理
 5. operator 跟字段类型不匹配会被服务端拒，并列出该字段允许的 operator——直接照着改
+6. `creator_id` 是合法过滤字段（按提交者查数据，如申诉 / 反馈记录）：**只支持 `eq`**，value 是单个用户 id 字符串（合法 ObjectId，即 entry 返回的 `creator_id`）；传非法值会被拒。例：`{"field":"creator_id","operator":"eq","value":"5f3a1c2b4d5e6f7a8b9c0d1e"}`
 
 operator × 字段类型兼容矩阵：
 
@@ -1111,6 +1114,7 @@ operator × 字段类型兼容矩阵：
       "serial_number": 1,
       "token": "ENTRY_TOKEN_1",
       "creator_name": "张三",
+      "creator_id": "5f3a1c2b4d5e6f7a8b9c0d1e",
       "created_at": "2026-04-20T10:00:00+08:00",
       "field_1": "张三",
       "field_2": "13812345678",
@@ -1123,6 +1127,8 @@ operator × 字段类型兼容矩阵：
 ```
 
 > **单次最多 50 条**。需要更多用 `next` 翻页（值是 `serial_number`）。
+>
+> `creator_id` 是提交者的稳定用户 id（`get_entry` / `list_entries` 才返回；v1/v2 API、Webhook、导出等其它出口都没有）。
 
 **调用示例**
 
@@ -1188,6 +1194,7 @@ operator × 字段类型兼容矩阵：
   "serial_number": 12,
   "token": "ENTRY_TOKEN_12",
   "creator_name": "张三",
+  "creator_id": "5f3a1c2b4d5e6f7a8b9c0d1e",
   "created_at": "2026-05-15T14:30:00+08:00",
   "field_1": "张三",
   "field_2": "13812345678",
@@ -1195,6 +1202,8 @@ operator × 字段类型兼容矩阵：
   "field_4": ["topic_product"]
 }
 ```
+
+> `creator_id` 是提交者的稳定用户 id，可拿去 `list_entries` 用 `creator_id` filter 查该用户提交的全部数据。
 
 **常见错误**
 
