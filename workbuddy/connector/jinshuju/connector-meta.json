@@ -1,0 +1,23 @@
+{
+    "name": "金数据",
+    "name_zh": "金数据",
+    "name_en": "Jinshuju",
+    "description": "Build forms and manage form data on Jinshuju with natural language.",
+    "description_zh": "用自然语言操作金数据（jinshuju.net）：创建/复制/编辑表单与主题，增删改查与批量修改表单数据，查询账户套餐与团队成员。",
+    "description_en": "Create and edit forms, query and bulk-update entries, check plan quota on Jinshuju (jinshuju.net).",
+    "source": "jinshuju",
+    "type": "mcp",
+    "version": "1.0.0",
+    "examples_zh": [
+        "列一下我金数据里的表单",
+        "帮我建一个“2026 春季发布会”报名表，要姓名、手机号、公司、职位",
+        "把 form_token 为 abCdEf 的表单里最近 7 天的报名数据导出来",
+        "查一下我这个金数据账户的套餐还剩多少额度"
+    ],
+    "examples_en": [
+        "List all forms in my Jinshuju account",
+        "Create a registration form for the 2026 Spring Launch with name, phone, company and title fields",
+        "Export the entries submitted in the last 7 days for form abCdEf",
+        "How much quota is left on my Jinshuju plan?"
+    ]
+}
