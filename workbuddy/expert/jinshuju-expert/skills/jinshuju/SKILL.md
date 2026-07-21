@@ -3,7 +3,7 @@ name: jinshuju
 slug: jinshuju
 displayName: 金数据（Jinshuju）
 description: "通过金数据（Jinshuju，jinshuju.net）MCP 操作用户托管在金数据平台上的在线表单：创建 / 复制 / 编辑表单与主题，含自动判分的考试表单、选项计分的测评表单；查询、新增（单条或批量）、更新、删除、批量修改数据；用上传凭证上传本地图片或文件；查询账户套餐额度与团队成员。仅在用户操作其金数据平台数据时使用——触发信号：提到 金数据 / Jinshuju / jinshuju.net、给出 form_token，或要操作一张已托管在金数据上的表单或数据。不要用于：用代码开发表单 / 问卷系统、处理本地文件或表格（Excel / CSV）、图片 / 票据 OCR、物流或监控等与平台无关的自动化，以及与金数据平台无关的通用数据处理。"
-version: 1.7.0
+version: 1.6.1
 author: Jinshuju
 license: MIT
 platforms: [macos, linux, windows]
@@ -53,8 +53,6 @@ metadata:
 | 复制表单 | `copy_form` |
 | 移动表单到文件夹 | `move_form` |
 | 修改表单字段/设置 | `edit_form` |
-| 查看字段显示规则 | `get_field_rules` |
-| 增删改字段显示规则（外科式） | `edit_field_rules` |
 | 修改表单主题 | `edit_theme` |
 | 上传本地图片（头图 / 选项配图） | `prepare_form_image_upload` |
 | 上传文件写入附件字段 | `prepare_entry_attachment_upload` |
@@ -65,7 +63,6 @@ metadata:
 | 新建数据（单条） | `create_entry` |
 | 批量新建数据（一次最多 200 条） | `create_entries` |
 | 更新数据（单条） | `update_entry` |
-| 批量更新数据（一次最多 200 条，PATCH） | `patch_entries` |
 | 删除数据（单条） | `delete_entry` |
 | 当前用户信息 | `get_current_user` |
 | 当前企业账户/套餐 | `get_current_billing_account` |
@@ -81,7 +78,7 @@ metadata:
 
 2. **filters 优先**：`list_entries` 支持 `filters=[{field, operator, value}]` 下推过滤，比拉全量再本地筛选快几个数量级。单次上限 50 条，超过用 `next`（serial_number 游标）翻页。
 
-3. **先列再改**：批量操作前先 `list_entries` 拉出命中记录展示给用户，**用户确认后**再执行——批量更新用 `patch_entries` 一次提交（≤200/批）；删除仍逐条循环 `delete_entry`，每 20 条汇报一次进度。
+3. **先列再改**：批量操作前先 `list_entries` 拉出命中记录展示给用户，**用户确认后**再逐条循环调用 `update_entry` / `delete_entry`，每 20 条汇报一次进度。
 
 4. **永不主动开 PUT**：`update_entry` 默认 `is_put=false`（PATCH，只改提供的字段）。`is_put=true` 会把未提供字段全部清空，只有用户明确说"整条替换"且已列全所有字段时才允许，且需二次确认。
 
@@ -95,8 +92,7 @@ metadata:
 ```
 1. create_form，传字段列表 + setting
    （考试 / 测评场景改用 create_exam_form / create_evaluation_form，
-    create_form 的 scene 已不支持 exam / evaluation，也不支持 vote / customer_acquisition，改用 form 场景；
-    要"分页式 / 一页一题 / 自动翻页"传 layout:"card"，别拿 PageBreak 拼）
+    create_form 的 scene 已不支持 exam / evaluation）
 2. 返回表单链接和 form_token
 3. 如需特殊样式，追加 edit_theme（可用 generate_header_image 让 AI 生成头图，
    本地已有图片则先 prepare_form_image_upload（type=header）上传）
@@ -115,8 +111,8 @@ metadata:
 ```
 1. get_form → 拿目标字段 api_code + 目标选项 api_code
 2. list_entries + filters 拉出命中集，展示前 10 条 + 总数
-3. 用户确认后，用 patch_entries 一次提交（每行 { serial_number, entry }，PATCH 只改提供字段，每批 ≤200 自行分批）
-4. 读返回的 updated_count + failed_rows（按 serial_number），向用户汇总成功/失败
+3. 用户确认后，逐条循环 update_entry（is_put=false）
+4. 每 20 条汇报进度，结束时汇总成功/失败数
 ```
 
 **④ 批量删除**
@@ -173,18 +169,14 @@ metadata:
 - **简单字段包成对象**（`{"value": "张三"}`）→ 直接传字符串
 - **TableField 按二维数组传** → 必须是对象数组，键是 dimension 的 `api_code`
 - **批量新建数据循环调 `create_entry`** → 改用 `create_entries` 一次提交（≤200 条/批，超过自行分批）；它部分成功、按下标返回 `errors`、不幂等（重复调会生成重复数据）
-- **批量更新循环调 `update_entry`** → 改用 `patch_entries`（一次 ≤200 行，每行 `{ serial_number, entry }`，PATCH 只改提供字段，单条聚合操作日志、按 serial_number 返回 `failed_rows`）；`delete_entry` 仍无批量版，逐条循环
+- **`update_entry` / `delete_entry` 找批量版本** → 没有，只支持单条，批量逐条循环（仅**新建**有批量版 `create_entries`）
 - **测试号段**（`13800138000`）→ 号段正则校验 400 拒；用真实在用号段
 - **删除整张表单** → MCP 不支持 `delete_form`，引导用户去后台手动操作
 - **`ESignatureField` / `FormulaField` 写入 entry** → 服务端忽略，写入无效
 - **改选项文案用 remove + add** → 会换 api_code，历史数据引用失效；改名用 `fields.update_choices.update`
 - **选择字段设默认选中用 `predefined_value`** → 选择类字段（单选 / 多选 / 下拉 / 级联）不接受 `predefined_value`；默认选中改用 `choices[].selected: true`
-- **字段显示规则 comparator 跟触发字段类型不匹配**（如选择字段用 `like`）→ 该 `edit_field_rules` 调用被拒；选择类用 `equal` / `none_in`、评分 / NPS 用 `between`、文本类用 `like` / `not_like`
-- **还在用 edit_form 的 `field_rules` 改显示规则** → 该参数已移除、误传被拒；改用 `edit_field_rules` 做外科式 add / update / remove（按 `get_form(include_field_rules=true)` 或 `get_field_rules` 返回的 0-based `index` 定位），只动你传的那条、其余保留
-- **给图片选项字段（ImageRadioButton / ImageCheckBox）`update_choices.add` 不带图片** → 被拒（image choice requires image_url / image_base64 / image_upload_token）；每个图片选项必须带图片，`value` 是文字标签必填
-- **edit_form 改预约字段只改一项却不回传 `reservation_items[].api_code`** → reservation_items 是整体替换，丢了 api_code 会让历史预约数据失联；改动前先 get_form 读出各项 api_code 原样回传（省略时后端按 name 匹配保留，改名必须回传 api_code）
-- **用 PageBreak 拼分页式 / 一页一题表单** → PageBreak 只在经典式内手动分页；整表分页式传 `layout:"card"`（仅 form / survey 场景生效，且不支持矩阵 / 表格 / 商品 / 签名等字段）
-- **create_form 传 vote / customer_acquisition** → 已移除且会被拒（新编辑器打不开）；改用 `form` 场景
+- **字段显示规则 comparator 跟触发字段类型不匹配**（如选择字段用 `like`）→ 整批 `field_rules` 被拒；选择类用 `equal` / `none_in`、评分 / NPS 用 `between`、文本类用 `like` / `not_like`
+- **只传新增的那条 `field_rules`** → 是全量替换、不是合并，会**静默清空其余已有规则且无法回滚**；改动前先 `get_form`（带 `include_field_rules=true`）读全量 → 合并 → 回传完整列表
 - **删字段 / 选项不先查数据** → 删有提交数据的字段 / 选项会永久清除数据且不可恢复；`fields.remove` / `update_choices.remove` 前先对每个目标用 `check_field_data` 查，`has_data=true` 时把影响告诉用户、确认后再删（edit_form 本身不拦截）
 - **用 create_form 建考试/测评** → scene 枚举已移除 exam / evaluation；用 `create_exam_form` / `create_evaluation_form`
 - **考试开限时又把题目设必填** → `show_timeout=true` 与题目字段 `required` 互斥；默认不开限时，仅用户明确要求时开
@@ -199,7 +191,6 @@ metadata:
 - **create_entry**：返回包含 `serial_number`（整数）
 - **create_entries**：返回 `created_count` 与提交条数一致，`errors` 为空（有部分失败时按下标核对原因）
 - **update_entry**：返回的字段值与提交值一致
-- **patch_entries**：返回 `updated_count` 与提交行数一致，`failed_rows` 为空（有部分失败时按 serial_number 核对 reason）
 - **delete_entry**：后续 `get_entry` 返回 404 或条目不再出现在 `list_entries`
 - **批量操作**：向用户汇报"共 N 条，成功 X 条，失败 Y 条"
 

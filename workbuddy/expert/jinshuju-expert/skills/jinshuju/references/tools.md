@@ -1,6 +1,6 @@
 # 金数据 MCP 工具完整参考
 
-本文档列出当前对外开放的 **29 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
+本文档列出当前对外开放的 **26 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
 
 > 工具的实际暴露名可能带客户端前缀（如 `mcp__jinshuju__list_forms`），按客户端实际名字调用即可，本文统一用裸名。
 
@@ -8,20 +8,20 @@
 
 | 类别 | 工具 |
 | ---- | ---- |
-| **Forms** | [`list_forms`](#list_forms) · [`list_my_submitted_forms`](#list_my_submitted_forms) · [`list_folders`](#list_folders) · [`get_form`](#get_form) · [`get_field_rules`](#get_field_rules) · [`check_field_data`](#check_field_data) · [`create_form`](#create_form) · [`copy_form`](#copy_form) · [`move_form`](#move_form) · [`edit_form`](#edit_form) · [`edit_field_rules`](#edit_field_rules) · [`edit_theme`](#edit_theme) |
+| **Forms** | [`list_forms`](#list_forms) · [`list_my_submitted_forms`](#list_my_submitted_forms) · [`list_folders`](#list_folders) · [`get_form`](#get_form) · [`check_field_data`](#check_field_data) · [`create_form`](#create_form) · [`copy_form`](#copy_form) · [`move_form`](#move_form) · [`edit_form`](#edit_form) · [`edit_theme`](#edit_theme) |
 | **考试 / 测评** | [`create_exam_form`](#create_exam_form) · [`edit_exam_form`](#edit_exam_form) · [`create_evaluation_form`](#create_evaluation_form) · [`edit_evaluation_form`](#edit_evaluation_form) |
 | **上传** | [`prepare_form_image_upload`](#prepare_form_image_upload) · [`prepare_entry_attachment_upload`](#prepare_entry_attachment_upload) |
-| **Entries** | [`list_entries`](#list_entries) · [`list_my_submitted_entries`](#list_my_submitted_entries) · [`get_entry`](#get_entry) · [`create_entry`](#create_entry) · [`create_entries`](#create_entries) · [`update_entry`](#update_entry) · [`patch_entries`](#patch_entries) · [`delete_entry`](#delete_entry) |
+| **Entries** | [`list_entries`](#list_entries) · [`list_my_submitted_entries`](#list_my_submitted_entries) · [`get_entry`](#get_entry) · [`create_entry`](#create_entry) · [`create_entries`](#create_entries) · [`update_entry`](#update_entry) · [`delete_entry`](#delete_entry) |
 | **Account** | [`get_current_user`](#get_current_user) · [`get_current_billing_account`](#get_current_billing_account) · [`list_account_users`](#list_account_users) |
 
 ## OAuth Scope 速查
 
 | Scope | 涵盖工具 |
 | ----- | -------- |
-| `forms` | list_forms / list_my_submitted_forms / list_folders / get_form / get_field_rules / check_field_data / create_form / copy_form / move_form / edit_form / edit_field_rules / create_exam_form / edit_exam_form / create_evaluation_form / edit_evaluation_form / prepare_form_image_upload（type=field_choice） |
+| `forms` | list_forms / list_my_submitted_forms / list_folders / get_form / check_field_data / create_form / copy_form / move_form / edit_form / create_exam_form / edit_exam_form / create_evaluation_form / edit_evaluation_form / prepare_form_image_upload（type=field_choice） |
 | `form_setting` | edit_theme / prepare_form_image_upload（type=header） |
 | `read_entries` | list_entries / list_my_submitted_entries / get_entry |
-| `write_entries` | create_entry / create_entries / update_entry / patch_entries / delete_entry / prepare_entry_attachment_upload |
+| `write_entries` | create_entry / create_entries / update_entry / delete_entry / prepare_entry_attachment_upload |
 | `user` | get_current_user |
 | `billing_account` | get_current_billing_account / list_account_users |
 
@@ -160,7 +160,7 @@
 | `token` | string | ✅ | 表单 token **或** form id（数字 ID 也接受） |
 | `include_theme` | bool | 否 | 是否返回 `theme`（页头 / 配色 / 字体等样式）。默认 `false` |
 | `include_setting` | bool | 否 | 是否返回 `setting`（提交行为 / 关闭规则 / 通知规则 / 考试测评设置 / 字段显示规则）。默认 `false` |
-| `include_field_rules` | bool | 否 | 是否返回字段显示规则 `field_rules`（每条带 0-based `index`，供 [`edit_field_rules`](#edit_field_rules) 精确改 / 删）。默认 `false`。也可用只读的 [`get_field_rules`](#get_field_rules) 单独取 |
+| `include_field_rules` | bool | 否 | 是否返回字段显示规则 `field_rules`。默认 `false` |
 
 **输出**
 
@@ -170,7 +170,6 @@
   "token": "abCdEf",
   "description": "活动报名",
   "form_url": "https://jinshuju.net/f/abCdEf",
-  "layout": "classic",
   "fields": [
     {
       "api_code": "field_1",
@@ -230,65 +229,15 @@
 }
 ```
 
-> ⚠️ **默认只返回核心信息**（`name` / `token` / `form_url` / `description` / `layout` / `fields`）。`theme` / `setting` / `field_rules` 三块体积大，默认**不返回**，需分别传 `include_theme` / `include_setting` / `include_field_rules=true` 才带上。只为拿字段结构（`api_code`）时保持默认即可。顶层 `layout` 恒返回：`classic`（经典式）/ `card`（分页式，一页一题）。
+> ⚠️ **默认只返回核心信息**（`name` / `token` / `form_url` / `description` / `fields`）。`theme` / `setting` / `field_rules` 三块体积大，默认**不返回**，需分别传 `include_theme` / `include_setting` / `include_field_rules=true` 才带上。只为拿字段结构（`api_code`）时保持默认即可。
 >
 > 字段特有属性（如 `goods_items` / `reservation_items` / `associated_form_token` / `predefined_value` / `placeholder` / `range_min/max` / `precision` / `media_type` / `max_size` 等）按字段类型出现在对应 field 节点上。选项字段的 `choices[]` 中，「其他」选项（扩展输入）会带 `"is_other": true`，普通选项不带该键；预约字段 `daily_time_range_quotas` 的时刻以零填充字符串返回（`"09"` 而非 `9`）。
 >
-> 另外：传 `include_field_rules=true` 时返回顶层 `field_rules`（字段显示规则，每条带 0-based `index`；结构与增删改见 [`edit_field_rules`](#edit_field_rules)）；`include_setting=true` 时考试 / 测评表单还会返回 `setting.exam_setting` / `setting.evaluation_setting`（结构与 [`create_exam_form`](#create_exam_form) / [`create_evaluation_form`](#create_evaluation_form) 的同名入参对齐，题目字段带 `customized_type` 和按选项 value 序列化的 `answers`）——重写 answers / indicators 这类整体替换列表前，先用 get_form 读出现状。
+> 另外：传 `include_field_rules=true` 时返回顶层 `field_rules`（字段显示规则，结构见 [edit_form](#edit_form)）；`include_setting=true` 时考试 / 测评表单还会返回 `setting.exam_setting` / `setting.evaluation_setting`（结构与 [`create_exam_form`](#create_exam_form) / [`create_evaluation_form`](#create_evaluation_form) 的同名入参对齐，题目字段带 `customized_type` 和按选项 value 序列化的 `answers`）——重写 answers / indicators 这类整体替换列表前，先用 get_form 读出现状。
 
 **常见错误**
 
 - `Form cannot be found` — token 错 / 表单不属于当前账号 / 没被分享
-- `Insufficient scope: forms required`
-
----
-
-## get_field_rules
-
-**用途**：只读列出表单的字段显示规则，每条带 0-based `index`——改 / 删规则前用它（或 `get_form` 带 `include_field_rules=true`）拿到 `index`。返回内容与 `get_form(include_field_rules=true)` 的 `field_rules` 一致。
-
-**Scope**：`forms`
-
-**输入**
-
-| 参数 | 类型 | 必填 | 说明 |
-| ---- | ---- | ---- | ---- |
-| `form_token` | string | ✅ | 表单 token 或 form id |
-
-**输出**
-
-```json
-{
-  "token": "abCdEf",
-  "field_rules": [
-    {
-      "index": 0,
-      "targets": ["field_5"],
-      "targets_display_mode": "show",
-      "operator": "or",
-      "conditions": [
-        { "trigger": "field_1", "comparator": "equal", "value": ["choice_A"] }
-      ]
-    }
-  ]
-}
-```
-
-**规则项字段**
-
-| 字段 | 说明 |
-| ---- | ---- |
-| `index` | 该规则的 0-based 序号，`edit_field_rules` 的 update / remove 按它定位 |
-| `targets` | 目标字段 api_code 列表；`targets_display_mode=show` 时必填，`abort` 时忽略。目标字段在表单顺序上必须位于触发字段**之后**，否则规则被静默丢弃；目标必须是**普通字段（`private=false`）**，`private=true` 的隐藏字段任何规则都显示不出来 |
-| `targets_display_mode` | `show`（命中显示目标字段）/ `abort`（命中终止填写） |
-| `operator` | 多条件组合 `and` / `or`，默认 `or` |
-| `conditions[].trigger` | 触发字段 api_code |
-| `conditions[].comparator` | **必须匹配触发字段类型**，否则该 `edit_field_rules` 调用被拒。选择类（单选 / 多选 / 下拉 / 级联 / 排序 / 预约 / 表单关联）用 `equal`（包含任一）/ `none_in`（都不包含）；评分 / NPS 用 `between`；文本类（文本 / 多行 / 邮箱 / 手机 / 座机 / 链接 / 身份证）用 `like` / `not_like`。省略时按类型取主 comparator：选择→`equal`、评分 / NPS→`between`、文本→`like` |
-| `conditions[].value` | 按 comparator 取标量 / 数组 |
-
-**常见错误**
-
-- `Form cannot be found`
 - `Insufficient scope: forms required`
 
 ---
@@ -308,8 +257,7 @@
 | `name` | string | ✅ | 表单名 |
 | `fields` | array  | ✅ | 字段列表，每项见下表 |
 | `description` | string | 否 | 表单说明 |
-| `scene` | enum | 否 | 表单场景：`form`（默认）/ `survey` / `registry` / `reservation` / `online_payment`。⚠️ `vote` / `customer_acquisition` 已移除且会被拒（新编辑器打不开），改用 `form` 场景 |
-| `layout` | enum | 否 | 排版：`classic`（经典式，默认，所有题在一页滚动）/ `card`（分页式，一页一题、自动翻页 Typeform 风格）。用户要 分页式 / 卡片式 / 一页一题 / 自动翻页 时传 `card`——**不要用 PageBreak 拼**。`card` 仅 `form` / `survey` 场景生效，其他场景自动降级为 classic；且不支持这些字段类型（含则报错）：`PageBreak` `MatrixField` `MatrixScaleField` `TableField` `GoodsField` `ESignatureField` `FormAssociation` `MultipleBlanksField` `WidgetMap` `WidgetContact` `WidgetVideo` `WidgetButton` `WidgetMarquee` |
+| `scene` | enum | 否 | 表单场景：`form`（默认）/ `survey` / `registry` / `vote` / `reservation` / `customer_acquisition` / `online_payment` |
 | `setting` | object | 否 | 初次创建的关键 setting（仅 `success_message` / `open_entry_action` / `open_entry_message` / `notification_rules`）。完整 setting 用 `edit_form` 配 |
 | `folder_token` | string | 否 | 表单要放进的文件夹 token |
 
@@ -324,8 +272,7 @@
 | `private` | bool | 是否隐藏，设 true 时 `required` 自动置 false |
 | `unique` | bool | 不允许重复值。仅 `TextField` / `NameField` / `EmailField` / `MobileField` / `TelephoneField` / `IdCardField` / `LinkField` / `FormAssociation` 支持 |
 | `notes` | string | 字段提示文案（SectionBreak 时是描述正文） |
-| `choices` | array | 选项字段用：`[{ value, quota?, selected?, operand_value?, image_url?, image_upload_token?, sub_choices? }]`。`selected: true` 设**默认选中**——RadioButton / DropDown / ImageRadioButton 仅一项生效，CheckBox / ImageCheckBox 可多项，CascadeDropDown 沿选中路径每级节点都设 `selected: true`。`operand_value`（选项赋值）配合字段 `calculable=true` 给每个选项赋数值，供 FormulaField 计算——开启 calculable 后**每个选项都必须给** `operand_value`；`image_upload_token` 见 [prepare_form_image_upload](#prepare_form_image_upload)。**图片选项（ImageRadioButton / ImageCheckBox）的 `value` 是选项文字标签、必填，且每项必须带 `image_upload_token` / `image_url` / `image_base64` 之一，否则被拒** |
-| `choices_layout` | enum | 选项排列方式，仅 `RadioButton` / `CheckBox` / `ImageRadioButton` / `ImageCheckBox` 支持：`column`（列表 / 纵向，默认）/ `side_by_side`（平铺 / 横向）。其余字段忽略 |
+| `choices` | array | 选项字段用：`[{ value, quota?, selected?, operand_value?, image_url?, image_upload_token?, sub_choices? }]`。`selected: true` 设**默认选中**——RadioButton / DropDown / ImageRadioButton 仅一项生效，CheckBox / ImageCheckBox 可多项，CascadeDropDown 沿选中路径每级节点都设 `selected: true`。`operand_value`（选项赋值）配合字段 `calculable=true` 给每个选项赋数值，供 FormulaField 计算——开启 calculable 后**每个选项都必须给** `operand_value`；`image_upload_token` 见 [prepare_form_image_upload](#prepare_form_image_upload) |
 | `statements` | array | 矩阵类用：`[{ label }]` |
 | `dimensions` | array | TableField / MatrixField 用 |
 | `rating_max` | int | RatingField / MatrixScaleField 用，3/5/10 |
@@ -403,8 +350,6 @@
 
 **装饰 / 控件（6）**：`SectionBreak`（描述字段）`PageBreak` `WidgetButton` `WidgetContact` `WidgetMap` `WidgetMarquee`
 
-> `PageBreak` 只是在**经典式**表单内手动分页（拆子页），**不等于分页式表单**；要整表一页一题 / 自动翻页，用 `create_form` 的 `layout: "card"`（见输入表），别拿 PageBreak 拼。
-
 **复杂字段示例片段**
 
 ```json
@@ -448,20 +393,6 @@
 ```
 
 > `start_time_offset` = 提前预约要求（须提前 N 天 / 小时预约）；`end_time_offset` = 未来可约窗口（未来可约 N 天 / 小时内）；`unit` 取 `day` / `hour`，省略则无对应限制。`start_time` / `end_time` 传 `{ hour, minute }` 整数即可，`get_form` 读回时时刻是零填充字符串（`"09"`）。
->
-> ⚠️ **`edit_form` 更新 `reservation_items` 是整体替换**：要保留某个已有项（如只改 quota），必须从 `get_form` 读出并在该项回传其 `api_code`——预约提交数据按 item 的 `api_code` 索引，丢了会让历史预约数据失联。省略 `api_code` 时后端按 `name` 匹配现有项保留；**改名务必回传 `api_code`**，否则视为新项、旧数据失联。
-
-```json
-{
-  "type": "ImageRadioButton", "label": "选择头像", "choices_layout": "side_by_side",
-  "choices": [
-    { "value": "头像 A", "image_upload_token": "form_img_tok_..." },
-    { "value": "头像 B", "image_url": "https://cdn.example.com/b.png" }
-  ]
-}
-```
-
-> 图片选项（`ImageRadioButton` / `ImageCheckBox`）的 `value` 是**文字标签、必填**；图片走 `image_upload_token`（本地图先 [prepare_form_image_upload](#prepare_form_image_upload)）/ `image_url` / `image_base64`，三者必须有其一。
 
 ```json
 {
@@ -580,10 +511,9 @@
 | `description` | string | 否 | 新表单说明 |
 | `setting` | object | 否 | 见下"setting 全字段表"；**只传要改的 key，其他保持原值** |
 | `fields` | object | 否 | `{ add[], remove[], update[], update_choices[] }` 四种操作，原子化执行 |
+| `field_rules` | array | 否 | 字段显示规则，见下"field_rules 显示规则"；**整体替换语义** |
 
 **必须至少传一个 edit 操作，否则报 `No edit operations specified`。**
-
-> ⚠️ 字段显示规则**不再通过 edit_form 编辑**：`field_rules` 参数已移除，误传会被拒（`field_rules is no longer edited through edit_form. Use the edit_field_rules tool`）。改用专用工具 [`edit_field_rules`](#edit_field_rules)（外科式增删改，按 index 定位）。
 
 ### setting 全字段表
 
@@ -667,7 +597,7 @@
 
 #### `fields.update: []`
 
-每项必须有 `api_code`，可修改 label / required / private / notes / unique / other_choice_required / choices_layout / 类型专属属性。**改 TableField / MatrixField 的 dimensions / statements、以及 ReservationField 的 reservation_items 时必须带各自的 api_code**（预约项 api_code 见 [字段类型清单](#字段类型白名单) 的 ReservationField 片段），否则旧数据引用会失效。传 `position`（0-based 整数）可把已存在字段移到新位置，保留 api_code 和数据；在 `fields.add` 插入之后应用，多个 `position` 按升序执行，越界钳到末尾。
+每项必须有 `api_code`，可修改 label / required / private / notes / unique / other_choice_required / 类型专属属性。**改 TableField / MatrixField 的 dimensions / statements 时必须带 dimension/statement 的 api_code**，否则旧数据引用会失效。传 `position`（0-based 整数）可把已存在字段移到新位置，保留 api_code 和数据；在 `fields.add` 插入之后应用，多个 `position` 按升序执行，越界钳到末尾。
 
 ```json
 {
@@ -683,7 +613,7 @@
 
 #### `fields.update_choices: []`
 
-选项字段的增删改名。**改文案永远用 `update`（保留 api_code）**，不要用 `remove` + `add`，否则历史数据引用失效。切换选项的**默认选中**也用 `update`（带 `api_code` + `selected`）；`add` 的新选项也可带 `selected`。`remove` 选项前先用 [`check_field_data`](#check_field_data)（带 `choice_value`）查该选项是否有数据，有则向用户确认。**图片选项字段（ImageRadioButton / ImageCheckBox）**：`add` 的每项必须带 `image_upload_token` / `image_url` / `image_base64` 之一（缺图报 `image choice requires image_url, image_base64 or image_upload_token`）；`update` 的 `value` 改的是选项文字标签、不动配图。
+选项字段的增删改名。**改文案永远用 `update`（保留 api_code）**，不要用 `remove` + `add`，否则历史数据引用失效。切换选项的**默认选中**也用 `update`（带 `api_code` + `selected`）；`add` 的新选项也可带 `selected`。`remove` 选项前先用 [`check_field_data`](#check_field_data)（带 `choice_value`）查该选项是否有数据，有则向用户确认。
 
 ```json
 {
@@ -700,7 +630,37 @@
 }
 ```
 
-> 字段显示规则（field_rules）现由专用工具 [`edit_field_rules`](#edit_field_rules) 增删改、[`get_field_rules`](#get_field_rules) 读取，不再走 edit_form。
+### field_rules 显示规则
+
+按触发字段的值显示目标字段，或终止填写。**整体替换语义**：传 `field_rules` 会清空现有全部规则按数组重建；传 `[]` 清空所有规则；不传则保持不变。
+
+> ⚠️ **是全量替换、不是合并，且无法撤销**：要"加一条 / 改一条"规则而不动其余，**必须先** `get_form`（带 `include_field_rules=true`）读出当前全部规则，把改动合并进完整列表，再把**完整列表**回传。只传新规则会把已有规则全部删掉，且没有历史可回滚。
+
+```json
+{
+  "field_rules": [
+    {
+      "targets": ["field_2", "field_5"],
+      "targets_display_mode": "show",
+      "operator": "or",
+      "conditions": [
+        { "trigger": "field_1", "comparator": "equal", "value": ["choice_A"] }
+      ]
+    }
+  ]
+}
+```
+
+| 字段 | 说明 |
+| ---- | ---- |
+| `targets` | 目标字段 api_code 列表；`targets_display_mode=show` 时必填，`abort` 时忽略 |
+| `targets_display_mode` | `show`（命中条件时显示目标字段）/ `abort`（命中条件时终止填写） |
+| `operator` | 多条件组合方式 `and` / `or`，默认 `or` |
+| `conditions[].trigger` | 触发字段 api_code |
+| `conditions[].comparator` | **必须匹配触发字段类型**，否则整批规则被拒（报 `Field "<label>" does not support comparator "<x>"; available comparators: ...`）。选择类字段（单选 / 多选 / 下拉 / 级联 / 排序 / 预约 / 表单关联）用 `equal`（包含任一）/ `none_in`（都不包含）；评分 / NPS 用 `between`（数值区间）；文本类（文本 / 多行 / 邮箱 / 手机 / 座机 / 链接 / 身份证）用 `like` / `not_like`。**省略时按字段类型取主 comparator**：选择→`equal`、评分 / NPS→`between`、文本→`like`（不再一律默认 `equal`） |
+| `conditions[].value` | 按 comparator 取标量 / 数组 |
+
+注意：目标字段在表单顺序上必须位于触发字段**之后**，否则该规则被静默丢弃；目标字段必须保持**普通字段（`private=false`）**——显示规则自己负责"默认隐藏、命中条件才显示"，而 `private=true` 的隐藏字段对外永远不可见，设了规则也不会显示。⚠️ 工具 schema 描述里 "mark fields you want to reveal as private=true" 一句有误，勿照做。当前规则传 `include_field_rules=true` 从 `get_form` 的 `field_rules` 读取。
 
 ### 输出
 
@@ -720,51 +680,6 @@
 - `No edit operations specified` — 一个操作都没传
 - `Invalid field type: <Type>`
 - `Failed to update form: <validation messages>`
-- `field_rules is no longer edited through edit_form. Use the edit_field_rules tool` — 显示规则改用 [`edit_field_rules`](#edit_field_rules)
-- `Insufficient scope: forms required`
-
----
-
-## edit_field_rules
-
-**用途**：外科式增删改字段显示规则——只传你要动的那几条，其余规则**原地保留**（不再是 edit_form 时代的全量替换）。改 / 删按 0-based `index` 定位（先用 [`get_form`](#get_form)(`include_field_rules=true`) 或 [`get_field_rules`](#get_field_rules) 拿 index）。
-
-**Scope**：`forms`
-
-**输入**
-
-| 参数 | 类型 | 必填 | 说明 |
-| ---- | ---- | ---- | ---- |
-| `form_token` | string | ✅ | 表单 token 或 form id |
-| `add` | array | 否 | 追加的新规则；每项结构见 [`get_field_rules`](#get_field_rules) 的规则项（`targets` / `targets_display_mode` / `operator` / `conditions`），`show` 模式必带 `targets` |
-| `update` | array | 否 | 改已有规则；每项必带 `index`（0-based）+ 要改的字段。只改传入的 key；但传了 `conditions` / `targets` 时该项整段替换 |
-| `remove` | array | 否 | 要删的规则 `index` 数组（整数） |
-
-至少传 `add` / `update` / `remove` 之一。语义：先按 `remove` 删 → 按 `update` 原地改 → 把 `add` 追加到末尾。规则项的 comparator / 目标字段约束同 [`get_field_rules`](#get_field_rules)（comparator 必须匹配触发字段类型；目标字段须在触发字段之后且非 private）。
-
-**调用示例（加一条 + 改一条 + 删一条）**
-
-```json
-{
-  "form_token": "abCdEf",
-  "add": [
-    { "targets": ["field_9"], "targets_display_mode": "show", "conditions": [{ "trigger": "field_1", "comparator": "equal", "value": ["choice_B"] }] }
-  ],
-  "update": [
-    { "index": 0, "targets_display_mode": "abort" }
-  ],
-  "remove": [2]
-}
-```
-
-**输出**：`{ "token": "...", "field_rules": [ { "index": 0, ... }, ... ] }`（改动后的完整规则列表，重新编号）。
-
-**常见错误**
-
-- `index N is out of range; the form currently has M rule(s)` / `the form has no field rules yet` — index 越界 / 表单还没有规则；先 get_form 读现状
-- 同一 `index` 同时出现在 `remove` 和 `update`，或 `update` 里 index 重复 → 报错
-- `index must be an integer` — index 不是整数
-- comparator 与触发字段类型不匹配 → 整个调用被拒
 - `Insufficient scope: forms required`
 
 ---
@@ -820,7 +735,6 @@
 | `fields` | array | ✅ | 按显示顺序排列：考生信息字段在前，题目在后。**题目字段必须带 `answers`** |
 | `description` | string | 否 | 表单说明 |
 | `exam_setting` | object | 否 | 考试专属设置，见下 |
-| `layout` | enum | 否 | `classic`（默认）/ `card`（分页式，一页一题、自动翻页）。card 不支持 `PageBreak`，含则报错 |
 | `setting` | object | 否 | 仅 `fill_frequency`（考试常用 `fill_type=once` + `condition=by_device`）和 `by_time_range_close_rule`（开放时间窗） |
 | `folder_token` | string | 否 | 文件夹 token |
 
@@ -914,7 +828,6 @@
 | `fields` | array | ✅ | 评价人信息在前，题目在后。**计分题型必须带 `answers`** |
 | `description` | string | 否 | |
 | `evaluation_setting` | object | 否 | 测评专属设置，见下 |
-| `layout` | enum | 否 | `classic`（默认）/ `card`（分页式，一页一题）。card 不支持 `MatrixScaleField` / `PageBreak`，含则报错 |
 | `setting` | object | 否 | 同 create_exam_form 的 setting |
 | `folder_token` | string | 否 | |
 
@@ -1421,7 +1334,7 @@ operator × 字段类型兼容矩阵：
 
 ## update_entry
 
-**用途**：更新单条 entry。批量更新多条改用 [`patch_entries`](#patch_entries)（一次一批、单条聚合日志）。
+**用途**：更新单条 entry。**只支持单条**，批量要逐条循环调用。
 
 **Scope**：`write_entries`
 
@@ -1465,61 +1378,6 @@ operator × 字段类型兼容矩阵：
 - `Entry cannot be found`
 - `Entry attributes cannot be empty`
 - 字段 validation 错误
-- `Insufficient scope: write_entries required`
-
----
-
-## patch_entries
-
-**用途**：一次批量更新（PATCH）多条已有 entry，每行带自己的 `serial_number` 和字段值。只改提供的字段、其余保留。相比循环调 `update_entry`，只产生**一条**聚合操作日志（"修改 N 条记录"），不刷屏企业操作日志——批量改数据优先用它。
-
-**Scope**：`write_entries`
-
-**输入**
-
-| 参数 | 类型 | 必填 | 说明 |
-| ---- | ---- | ---- | ---- |
-| `form_token` | string | ✅ | 表单 token 或 form id |
-| `entries` | array | ✅ | 要更新的行数组，最多 **200** 条；每项见下 |
-
-`entries[]` 每项：
-
-| 字段 | 类型 | 必填 | 说明 |
-| ---- | ---- | ---- | ---- |
-| `serial_number` | integer | ✅ | 目标 entry 流水号 |
-| `entry` | object | ✅ | `{ api_code: value }`，格式同 [`update_entry`](#update_entry) 的 `entry`；PATCH 只改提供字段、不清空未提供字段（无 `is_put` 全替换选项） |
-
-**行为要点**
-
-- **部分成功**：逐行处理，失败行在 `failed_rows` 按 `serial_number` 返回原因，只要有一行成功就 `ok: true`。
-- 字段值规范同 `update_entry`（key 是 `api_code`、选项传 api_code、`ESignatureField` / `FormulaField` 写入被忽略）。
-- 按 `serial_number` 定位、PATCH 语义，重跑对同一字段幂等（不像 `create_entries` 会产生重复）。
-
-**输出**
-
-```json
-{ "ok": true, "updated_count": 2, "failed_rows": [] }
-```
-
-部分失败时：
-
-```json
-{
-  "ok": true,
-  "updated_count": 1,
-  "failed_rows": [
-    { "serial_number": 999999, "reason": "not_found_or_forbidden", "errors": null }
-  ]
-}
-```
-
-> `reason` 取值：`not_found_or_forbidden`（流水号不存在或无权限）/ `version_conflict` / `validation_failed`（`errors` 带字段级原因）/ `invalid_serial_number` / `invalid_attributes`。
-
-**常见错误**
-
-- `Form cannot be found`
-- `Rows cannot be empty` — `entries` 为空
-- `A batch can contain at most 200 rows` — 超单批上限，自行分批
 - `Insufficient scope: write_entries required`
 
 ---
