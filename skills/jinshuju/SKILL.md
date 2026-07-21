@@ -1,5 +1,7 @@
 ---
 name: jinshuju
+slug: jinshuju
+displayName: 金数据（Jinshuju）
 description: "通过金数据（Jinshuju，jinshuju.net）MCP 操作用户托管在金数据平台上的在线表单：创建 / 复制 / 编辑表单与主题，含自动判分的考试表单、选项计分的测评表单；查询、新增（单条或批量）、更新、删除、批量修改数据；用上传凭证上传本地图片或文件；查询账户套餐额度与团队成员。仅在用户操作其金数据平台数据时使用——触发信号：提到 金数据 / Jinshuju / jinshuju.net、给出 form_token，或要操作一张已托管在金数据上的表单或数据。不要用于：用代码开发表单 / 问卷系统、处理本地文件或表格（Excel / CSV）、图片 / 票据 OCR、物流或监控等与平台无关的自动化，以及与金数据平台无关的通用数据处理。"
 version: 1.6.1
 author: Jinshuju
@@ -12,7 +14,7 @@ metadata:
     related_skills: []
 ---
 
-# 金数据（Jinshuju）操作专家
+# 金数据（Jinshuju）
 
 金数据（jinshuju.net）是中国领先的在线表单与数据收集平台。通过金数据 MCP，你可以用自然语言完成表单搭建与数据管理的全流程，**替代登录后台手动操作**。
 
