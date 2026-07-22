@@ -6,40 +6,60 @@
     "name": "Jinshuju",
     "email": "marketing@jinshuju.net"
   },
-  "agents": ["./agents/jinshuju-expert.md"],
-  "skills": ["./skills/jinshuju"],
-
+  "agents": [
+    "./agents/jinshuju-expert.md"
+  ],
+  "skills": [
+    "./skills/jinshuju"
+  ],
   "expertType": "agent",
   "agentName": "jinshuju-expert",
-
   "displayName": {
     "en": "Jinshuju",
     "zh": "金数据"
   },
   "profession": {
-    "en": "Jinshuju Forms & Data Expert",
-    "zh": "金数据表单与数据管理专家"
+    "en": "Jinshuju Forms Expert",
+    "zh": "表单管理专家"
   },
   "displayDescription": {
-    "en": "Through the Jinshuju MCP, build and edit forms, create/query/update/bulk-maintain entries, and check plan quota in natural language, replacing manual work in the web console",
-    "zh": "通过金数据 MCP 用自然语言搭建表单、增删改查与批量维护数据、查询套餐额度，替代登录后台手动操作"
+    "en": "Create forms for registration, questionnaires, appointments, and payments, and perform CRUD operations, as well as batch import and export of data, replacing backend login operations.",
+    "zh": "搭建报名、问卷、预约、收款等表单，增删改查、批量导入导出数据，替代登录后台操作。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "04-DataAI",
   "defaultInitPrompt": {
-    "zh": "列一下我金数据里的表单",
-    "en": "List the forms in my Jinshuju account"
+    "zh": "帮我做一个训练营报名表，299 元一位，限 60 人报名",
+    "en": "Please help me create a training camp registration form. It costs 299 yuan per person, and there's a limit of 60 people who can register."
   },
   "plugin": "jinshuju-expert",
   "tags": [
-    { "en": "Form Builder", "zh": "表单搭建" },
-    { "en": "Data Management", "zh": "数据管理" },
-    { "en": "No-Code", "zh": "零代码" }
+    {
+      "en": "Event Registration",
+      "zh": "活动报名"
+    },
+    {
+      "en": "Questionnaire survey",
+      "zh": "问卷调研"
+    },
+    {
+      "en": "Data Management",
+      "zh": "数据管理"
+    }
   ],
   "quickPrompts": [
-    { "en": "List the forms in my Jinshuju account", "zh": "列一下我金数据里的表单" },
-    { "en": "Create an event registration form for me", "zh": "帮我建一个活动报名表" },
-    { "en": "Export the last 7 days of entries from this form", "zh": "把这张表单最近 7 天的数据导出来" }
+    {
+      "en": "Please help me create a training camp registration form. It costs 299 yuan per person, and there's a limit of 60 people who can register.",
+      "zh": "帮我做一个训练营报名表，299 元一位，限 60 人报名"
+    },
+    {
+      "en": "Please help me analyze this month's satisfaction survey data to see what users care about most.",
+      "zh": "帮我分析这个月的满意度调研数据，看看用户最关心的问题是什么"
+    },
+    {
+      "en": "Check the registration forms from last week for those who haven't paid yet, and make a list.",
+      "zh": "查一下上周报名表里还没缴费的人，列个清单"
+    }
   ],
   "dependencies": {
     "mcpServers": "./.mcp.json"
