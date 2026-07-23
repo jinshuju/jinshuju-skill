@@ -1,7 +1,7 @@
 {
-    "name": "表单管理专家",
-    "name_zh": "表单管理专家",
-    "name_en": "Forms Expert",
+    "name": "金数据 · 表单",
+    "name_zh": "金数据 · 表单",
+    "name_en": "Jinshuju · Forms",
     "description": "Build forms and manage form data on Jinshuju with natural language.",
     "description_zh": "搭建报名、问卷、预约、收款等表单，增删改查、批量导入导出数据，替代登录后台操作。",
     "description_en": "Create forms for registration, questionnaires, appointments, and payments, and perform CRUD operations, as well as batch import and export of data, replacing backend login operations.",

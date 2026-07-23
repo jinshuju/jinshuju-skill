@@ -1,7 +1,7 @@
 {
-    "name": "AI表格专家",
-    "name_zh": "AI表格专家",
-    "name_en": "AI Table Expert",
+    "name": "金数据 · AI表格",
+    "name_zh": "金数据 · AI表格",
+    "name_en": "Jinshuju · AI Tables",
     "description": "Lightweight Jinshuju tables designed for agents — read and write rows with natural language.",
     "description_zh": "轻量表格，支持文本、日期等多种字段类型，专为 Agent 设计，可随时读写协作。",
     "description_en": "Lightweight tables supporting multiple field types such as text and date, designed for agents, readable and writable anytime for collaboration.",

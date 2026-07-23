@@ -1,7 +1,7 @@
 ---
 name: jinshuju-table
 slug: jinshuju-table
-displayName: 金数据表格（Jinshuju Tables）
+displayName: 金数据AI表格
 description: "通过金数据（Jinshuju，jinshuju.net）MCP 操作用户托管在金数据平台上的数据表格：创建 / 编辑数据表与列（含自动计算的公式列）；查询、新增（单条或批量）、更新、批量更新、删除行数据；用上传凭证把本地文件写入附件列；查询账户套餐额度与团队成员。仅在用户操作其金数据数据表时使用——触发信号：提到 金数据表格 / Jinshuju 表格 / 数据表，或要在金数据上建表、加改列、批量维护行数据。不要用于：用代码开发表格系统、处理本地文件或表格（Excel / CSV）、搭建对外收集的表单 / 问卷、图片 / 票据 OCR，以及与金数据平台无关的通用数据处理。"
 version: 1.0.0
 author: Jinshuju
