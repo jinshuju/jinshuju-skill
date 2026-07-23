@@ -29,6 +29,7 @@ author: "Jinshuju"
 |------|------|----------|
 | `list_forms` | 列出可访问的表单 | `name`(正则关键字,可选)、`next`、`limit` |
 | `list_folders` | 列出文件夹，取 `folder_token` | — |
+| `create_folder` | 新建文件夹，返回 `folder_token` | `name` ✅ |
 | `get_form` | 取表单完整结构（字段、API 名、类型） | `form_token` ✅ |
 | `check_field_data` | 写数据前预检字段值是否合法 | `form_token` ✅、`fields` |
 | `create_form` | 新建表单 | `name` ✅、`fields` ✅、`folder_token`(可选) |
@@ -81,6 +82,7 @@ author: "Jinshuju"
 ## 注意事项
 
 - 写入/更新/过滤数据一律用**字段 API 名**（`field_1`…），不要用中文标题猜。拿不准就先 `get_form`。
+- 选项 `quota`：省略 = 不限量（默认）；正整数 = 名额上限；`0` = 一开始就满、不可选。**别用 `0` 表示"不限量"**，否则选项渲染出来却选不了。
 - 分页统一走响应里的 `next` 游标；`limit` 越界会自动截断。
 - 批量修改/删除不可逆，执行前向用户复述影响范围并确认。
 - 报 `Insufficient scope` 时，说明缺哪个 scope，提示用户重新授权勾选对应权限。

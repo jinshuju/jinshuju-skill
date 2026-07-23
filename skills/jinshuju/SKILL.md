@@ -3,7 +3,7 @@ name: jinshuju
 slug: jinshuju
 displayName: 金数据（Jinshuju）
 description: "通过金数据（Jinshuju，jinshuju.net）MCP 操作用户托管在金数据平台上的在线表单：创建 / 复制 / 编辑表单与主题，含自动判分的考试表单、选项计分的测评表单；查询、新增（单条或批量）、更新、删除、批量修改数据；用上传凭证上传本地图片或文件；查询账户套餐额度与团队成员。仅在用户操作其金数据平台数据时使用——触发信号：提到 金数据 / Jinshuju / jinshuju.net、给出 form_token，或要操作一张已托管在金数据上的表单或数据。不要用于：用代码开发表单 / 问卷系统、处理本地文件或表格（Excel / CSV）、图片 / 票据 OCR、物流或监控等与平台无关的自动化，以及与金数据平台无关的通用数据处理。"
-version: 1.7.0
+version: 1.8.0
 author: Jinshuju
 license: MIT
 platforms: [macos, linux, windows]
@@ -43,6 +43,7 @@ metadata:
 | 场景 | MCP 工具 |
 |------|----------|
 | 列出文件夹 | `list_folders` |
+| 新建文件夹 | `create_folder` |
 | 列出表单 | `list_forms` |
 | 查看表单详情（字段结构） | `get_form` |
 | 创建表单 | `create_form` |
@@ -179,6 +180,7 @@ metadata:
 - **`ESignatureField` / `FormulaField` 写入 entry** → 服务端忽略，写入无效
 - **改选项文案用 remove + add** → 会换 api_code，历史数据引用失效；改名用 `fields.update_choices.update`
 - **选择字段设默认选中用 `predefined_value`** → 选择类字段（单选 / 多选 / 下拉 / 级联）不接受 `predefined_value`；默认选中改用 `choices[].selected: true`
+- **用选项 `quota: 0` 表示"不限量"** → `0` 表示该选项**一开始就满、立即置灰不可选**（选项渲染出来却选不了）；不限量应**省略 `quota`**，正整数才是名额上限
 - **字段显示规则 comparator 跟触发字段类型不匹配**（如选择字段用 `like`）→ 该 `edit_field_rules` 调用被拒；选择类用 `equal` / `none_in`、评分 / NPS 用 `between`、文本类用 `like` / `not_like`
 - **还在用 edit_form 的 `field_rules` 改显示规则** → 该参数已移除、误传被拒；改用 `edit_field_rules` 做外科式 add / update / remove（按 `get_form(include_field_rules=true)` 或 `get_field_rules` 返回的 0-based `index` 定位），只动你传的那条、其余保留
 - **给图片选项字段（ImageRadioButton / ImageCheckBox）`update_choices.add` 不带图片** → 被拒（image choice requires image_url / image_base64 / image_upload_token）；每个图片选项必须带图片，`value` 是文字标签必填
