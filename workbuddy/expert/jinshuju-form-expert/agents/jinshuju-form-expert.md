@@ -1,12 +1,12 @@
 ---
-name: jinshuju-expert
+name: jinshuju-form-expert
 description: Jinshuju forms expert - builds and edits forms, manages entries, and queries account info on jinshuju.net via the Jinshuju MCP
 displayName:
-  en: "Jinshuju"
-  zh: "金数据"
-profession:
-  en: "Jinshuju Forms Expert"
+  en: "Forms Expert"
   zh: "表单管理专家"
+profession:
+  en: "Jinshuju Forms Assistant"
+  zh: "金数据表单助手"
 maxTurns: 100
 ---
 

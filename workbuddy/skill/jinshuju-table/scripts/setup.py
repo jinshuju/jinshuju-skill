@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-金数据 MCP Skill 安装辅助脚本
+金数据表格 MCP Skill 安装辅助脚本
 
 这是一个 MCP 类型的 Skill —— 实际能力由远端 MCP Server 提供，
-无需在本地安装任何 Python / Node 依赖。
+无需在本地安装任何 Python / Node 依赖。表格工具需账户开通「新版表格」。
 
 脚本作用：
 1. 把 API Key / Secret 编码成 Basic 凭证
@@ -22,7 +22,7 @@ import base64
 import json
 import sys
 
-MCP_NAME = "jinshuju"
+MCP_NAME = "jinshuju-table"
 MCP_URL = "https://jinshuju.net/mcp"
 
 
@@ -47,7 +47,7 @@ def build_snippet(credentials: str = "BASE64_ENCODED_CREDENTIALS") -> dict:
 
 def print_banner() -> None:
     print("=" * 60)
-    print("  金数据 MCP Skill · 安装辅助")
+    print("  金数据表格 MCP Skill · 安装辅助")
     print("=" * 60)
 
 
@@ -55,6 +55,7 @@ def print_setup_instructions() -> None:
     print_banner()
     print()
     print(f"MCP 地址：{MCP_URL}")
+    print("（表单与表格共用同一端点；表格工具需账户开通「新版表格」）")
     print()
     print("金数据 MCP 支持两种认证方式，由用户自行选择：")
     print()
@@ -91,7 +92,7 @@ def print_setup_instructions() -> None:
     print()
     print("─" * 60)
     print()
-    print("添加完成后，在对话里发送 '列一下我金数据里的表单' 即可验证。")
+    print("添加完成后，在对话里发送 '列一下我金数据里的数据表' 即可验证。")
     print()
     print("其它命令：")
     print("  python3 setup.py --encode KEY SECRET       # 生成 Basic 凭证")
@@ -114,7 +115,7 @@ def cmd_print_json(api_key: str | None, api_secret: str | None) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="金数据 MCP Skill 安装辅助")
+    parser = argparse.ArgumentParser(description="金数据表格 MCP Skill 安装辅助")
     parser.add_argument("--encode", nargs=2, metavar=("KEY", "SECRET"),
                         help="把 API Key / Secret 编码成 Basic 凭证并输出")
     parser.add_argument("--print-json", nargs="*", metavar=("KEY", "SECRET"),

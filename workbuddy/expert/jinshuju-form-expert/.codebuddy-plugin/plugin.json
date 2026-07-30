@@ -1,5 +1,5 @@
 {
-  "name": "jinshuju-expert",
+  "name": "jinshuju-form-expert",
   "version": "1.0.0",
   "description": "Build forms and manage form data on Jinshuju (jinshuju.net) with natural language",
   "author": {
@@ -7,20 +7,20 @@
     "email": "marketing@jinshuju.net"
   },
   "agents": [
-    "./agents/jinshuju-expert.md"
+    "./agents/jinshuju-form-expert.md"
   ],
   "skills": [
-    "./skills/jinshuju"
+    "./skills/jinshuju-form"
   ],
   "expertType": "agent",
-  "agentName": "jinshuju-expert",
+  "agentName": "jinshuju-form-expert",
   "displayName": {
-    "en": "Jinshuju",
-    "zh": "金数据"
+    "en": "Forms Expert",
+    "zh": "表单管理专家"
   },
   "profession": {
-    "en": "Jinshuju Forms Expert",
-    "zh": "表单管理专家"
+    "en": "Jinshuju Forms Assistant",
+    "zh": "金数据表单助手"
   },
   "displayDescription": {
     "en": "Create forms for registration, questionnaires, appointments, and payments, and perform CRUD operations, as well as batch import and export of data, replacing backend login operations.",
@@ -32,7 +32,7 @@
     "zh": "帮我做一个训练营报名表，299 元一位，限 60 人报名",
     "en": "Please help me create a training camp registration form. It costs 299 yuan per person, and there's a limit of 60 people who can register."
   },
-  "plugin": "jinshuju-expert",
+  "plugin": "jinshuju-form-expert",
   "tags": [
     {
       "en": "Event Registration",

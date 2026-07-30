@@ -1,6 +1,6 @@
 # 金数据 MCP 工具完整参考
 
-本文档列出当前对外开放的 **29 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
+本文档列出当前对外开放的 **30 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
 
 > 工具的实际暴露名可能带客户端前缀（如 `mcp__jinshuju__list_forms`），按客户端实际名字调用即可，本文统一用裸名。
 
@@ -8,7 +8,7 @@
 
 | 类别 | 工具 |
 | ---- | ---- |
-| **Forms** | [`list_forms`](#list_forms) · [`list_my_submitted_forms`](#list_my_submitted_forms) · [`list_folders`](#list_folders) · [`get_form`](#get_form) · [`get_field_rules`](#get_field_rules) · [`check_field_data`](#check_field_data) · [`create_form`](#create_form) · [`copy_form`](#copy_form) · [`move_form`](#move_form) · [`edit_form`](#edit_form) · [`edit_field_rules`](#edit_field_rules) · [`edit_theme`](#edit_theme) |
+| **Forms** | [`list_forms`](#list_forms) · [`list_my_submitted_forms`](#list_my_submitted_forms) · [`list_folders`](#list_folders) · [`create_folder`](#create_folder) · [`get_form`](#get_form) · [`get_field_rules`](#get_field_rules) · [`check_field_data`](#check_field_data) · [`create_form`](#create_form) · [`copy_form`](#copy_form) · [`move_form`](#move_form) · [`edit_form`](#edit_form) · [`edit_field_rules`](#edit_field_rules) · [`edit_theme`](#edit_theme) |
 | **考试 / 测评** | [`create_exam_form`](#create_exam_form) · [`edit_exam_form`](#edit_exam_form) · [`create_evaluation_form`](#create_evaluation_form) · [`edit_evaluation_form`](#edit_evaluation_form) |
 | **上传** | [`prepare_form_image_upload`](#prepare_form_image_upload) · [`prepare_entry_attachment_upload`](#prepare_entry_attachment_upload) |
 | **Entries** | [`list_entries`](#list_entries) · [`list_my_submitted_entries`](#list_my_submitted_entries) · [`get_entry`](#get_entry) · [`create_entry`](#create_entry) · [`create_entries`](#create_entries) · [`update_entry`](#update_entry) · [`patch_entries`](#patch_entries) · [`delete_entry`](#delete_entry) |
@@ -18,7 +18,7 @@
 
 | Scope | 涵盖工具 |
 | ----- | -------- |
-| `forms` | list_forms / list_my_submitted_forms / list_folders / get_form / get_field_rules / check_field_data / create_form / copy_form / move_form / edit_form / edit_field_rules / create_exam_form / edit_exam_form / create_evaluation_form / edit_evaluation_form / prepare_form_image_upload（type=field_choice） |
+| `forms` | list_forms / list_my_submitted_forms / list_folders / create_folder / get_form / get_field_rules / check_field_data / create_form / copy_form / move_form / edit_form / edit_field_rules / create_exam_form / edit_exam_form / create_evaluation_form / edit_evaluation_form / prepare_form_image_upload（type=field_choice） |
 | `form_setting` | edit_theme / prepare_form_image_upload（type=header） |
 | `read_entries` | list_entries / list_my_submitted_entries / get_entry |
 | `write_entries` | create_entry / create_entries / update_entry / patch_entries / delete_entry / prepare_entry_attachment_upload |
@@ -140,6 +140,30 @@
 ```
 
 > 别人的文件夹不会出现在结果里。返回字段没有 `id`，**只用 token**。
+
+**常见错误**
+
+- `Insufficient scope: forms required`
+
+---
+
+## create_folder
+
+**用途**：新建一个文件夹，返回的 `token` 可作为 `folder_token` 传给 `create_form` / `copy_form` / `move_form`，把表单放进该文件夹。
+
+**Scope**：`forms`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `name` | string | ✅ | 文件夹名称 |
+
+**输出**
+
+```json
+{ "token": "FLD_e5f6", "name": "2026 市场活动" }
+```
 
 **常见错误**
 
@@ -324,7 +348,7 @@
 | `private` | bool | 是否隐藏，设 true 时 `required` 自动置 false |
 | `unique` | bool | 不允许重复值。仅 `TextField` / `NameField` / `EmailField` / `MobileField` / `TelephoneField` / `IdCardField` / `LinkField` / `FormAssociation` 支持 |
 | `notes` | string | 字段提示文案（SectionBreak 时是描述正文） |
-| `choices` | array | 选项字段用：`[{ value, quota?, selected?, operand_value?, image_url?, image_upload_token?, sub_choices? }]`。`selected: true` 设**默认选中**——RadioButton / DropDown / ImageRadioButton 仅一项生效，CheckBox / ImageCheckBox 可多项，CascadeDropDown 沿选中路径每级节点都设 `selected: true`。`operand_value`（选项赋值）配合字段 `calculable=true` 给每个选项赋数值，供 FormulaField 计算——开启 calculable 后**每个选项都必须给** `operand_value`；`image_upload_token` 见 [prepare_form_image_upload](#prepare_form_image_upload)。**图片选项（ImageRadioButton / ImageCheckBox）的 `value` 是选项文字标签、必填，且每项必须带 `image_upload_token` / `image_url` / `image_base64` 之一，否则被拒** |
+| `choices` | array | 选项字段用：`[{ value, quota?, selected?, operand_value?, image_url?, image_upload_token?, sub_choices? }]`。`quota`（名额）**省略 = 不限量**（默认，绝大多数情况用这个）；正整数 = 该选项最多可被选中的份数，满额后选项展示但置灰不可选；`0` = 一开始就满、立即不可选（仅当你**故意**要一个"展示但禁用"的选项时才传 0）。**绝不要用 `0` 表示"不限量"**——那会让选项渲染出来却选不了；不限量就省略该字段。`selected: true` 设**默认选中**——RadioButton / DropDown / ImageRadioButton 仅一项生效，CheckBox / ImageCheckBox 可多项，CascadeDropDown 沿选中路径每级节点都设 `selected: true`。`operand_value`（选项赋值）配合字段 `calculable=true` 给每个选项赋数值，供 FormulaField 计算——开启 calculable 后**每个选项都必须给** `operand_value`；`image_upload_token` 见 [prepare_form_image_upload](#prepare_form_image_upload)。**图片选项（ImageRadioButton / ImageCheckBox）的 `value` 是选项文字标签、必填，且每项必须带 `image_upload_token` / `image_url` / `image_base64` 之一，否则被拒** |
 | `choices_layout` | enum | 选项排列方式，仅 `RadioButton` / `CheckBox` / `ImageRadioButton` / `ImageCheckBox` 支持：`column`（列表 / 纵向，默认）/ `side_by_side`（平铺 / 横向）。其余字段忽略 |
 | `statements` | array | 矩阵类用：`[{ label }]` |
 | `dimensions` | array | TableField / MatrixField 用 |
