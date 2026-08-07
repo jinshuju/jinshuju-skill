@@ -2,8 +2,8 @@
 name: jinshuju
 slug: jinshuju
 displayName: 金数据（Jinshuju）
-description: "通过金数据（Jinshuju，jinshuju.net）MCP 操作用户托管在金数据平台上的在线表单：创建 / 复制 / 编辑表单与主题，含自动判分的考试表单、选项计分的测评表单；查询、新增（单条或批量）、更新、删除、批量修改数据；用上传凭证上传本地图片或文件；查询账户套餐额度与团队成员。仅在用户操作其金数据平台数据时使用——触发信号：提到 金数据 / Jinshuju / jinshuju.net、给出 form_token，或要操作一张已托管在金数据上的表单或数据。不要用于：用代码开发表单 / 问卷系统、处理本地文件或表格（Excel / CSV）、图片 / 票据 OCR、物流或监控等与平台无关的自动化，以及与金数据平台无关的通用数据处理。"
-version: 1.7.0
+description: "通过金数据（Jinshuju，jinshuju.net）MCP 操作用户托管在金数据平台上的在线表单与表格：创建 / 复制 / 编辑表单与主题，含自动判分的考试表单、选项计分的测评表单；创建 / 编辑多维表格；查询、新增（单条或批量）、更新、删除、批量修改数据，或把本地上传的 Excel / CSV 批量导入；建表格 / 看板视图筛选数据，建对外查询页供访客自助查询；用上传凭证上传本地图片或文件；查询账户套餐额度与团队成员。仅在用户操作其金数据平台数据时使用——触发信号：提到 金数据 / Jinshuju / jinshuju.net、给出 form_token，或要操作一张已托管在金数据上的表单、表格或数据。不要用于：用代码开发表单 / 问卷系统、把本地文件当普通文档分析（与导入到金数据表单无关时）、图片 / 票据 OCR、物流或监控等与平台无关的自动化，以及与金数据平台无关的通用数据处理。"
+version: 1.8.0
 author: Jinshuju
 license: MIT
 platforms: [macos, linux, windows]
@@ -23,7 +23,9 @@ metadata:
 本 skill **仅处理金数据线上表单平台（jinshuju.net）** 的表单搭建与数据管理，且需满足以下任一**平台信号**才触发：
 
 - 用户明确提到"金数据"、"Jinshuju"、"jinshuju.net"
-- 用户给出了 `form_token`，或要操作一张**已在金数据上**的表单 / 数据（创建、复制、编辑、移动表单，修改主题，增删改查或批量修改 entries，导出数据）
+- 用户给出了 `form_token`，或要操作一张**已在金数据上**的表单 / 表格 / 数据（创建、复制、编辑、移动表单或表格，修改主题，增删改查或批量修改 entries，导出数据）
+- 用户上传了 Excel / CSV 并要把它**导入到金数据的某张表单 / 表格**
+- 用户要给某张表单建**视图**（筛选 / 看板）或建**对外查询页**（让访客自助查数据）
 - 用户要查询本账户的套餐额度、团队成员
 
 ## When NOT to Use
@@ -31,7 +33,7 @@ metadata:
 以下场景**不要**用本 skill，直接退出、交给通用能力处理：
 
 - 用代码 / 程序开发表单、问卷、评估系统（如在 Python / 前端项目里"做一个报名表 / 问卷"）
-- 处理本地文件、Excel / CSV、文档分析
+- 纯本地处理文件、Excel / CSV、文档分析（**若目标是把这份表格导入到金数据某表单 / 表格，则属于本 skill**，用 `import_entries_from_file`）
 - 图片、账单、票据的 OCR / 识别
 - 物流、监控等与金数据平台无关的业务自动化
 - 仅出现"表 / 表单 / 问卷"字眼，但并非操作金数据线上平台
@@ -43,8 +45,10 @@ metadata:
 | 场景 | MCP 工具 |
 |------|----------|
 | 列出文件夹 | `list_folders` |
+| 新建文件夹 | `create_folder` |
 | 列出表单 | `list_forms` |
 | 查看表单详情（字段结构） | `get_form` |
+| 检查字段/选项是否已有数据（删前确认） | `check_field_data` |
 | 创建表单 | `create_form` |
 | 创建考试表单（答案 + 自动判分） | `create_exam_form` |
 | 编辑考试表单 | `edit_exam_form` |
@@ -58,6 +62,17 @@ metadata:
 | 修改表单主题 | `edit_theme` |
 | 上传本地图片（头图 / 选项配图） | `prepare_form_image_upload` |
 | 上传文件写入附件字段 | `prepare_entry_attachment_upload` |
+| 列出表格（多维表） | `list_tables` |
+| 查看表格详情（字段结构） | `get_table` |
+| 创建表格 | `create_table` |
+| 编辑表格字段/名称 | `edit_table` |
+| 移动表格到文件夹 | `move_table` |
+| 列出表单视图 | `list_form_views` |
+| 查看视图详情 | `get_form_view` |
+| 创建视图（表格 / 看板） | `create_form_view` |
+| 编辑视图 | `edit_form_view` |
+| 删除视图 | `delete_form_view` |
+| 按视图筛选列出数据 | `list_form_view_entries` |
 | 列出数据 | `list_entries` |
 | 列出我填写 / 提交过的表单 | `list_my_submitted_forms` |
 | 列出我在某表单提交的数据 | `list_my_submitted_entries` |
@@ -67,6 +82,11 @@ metadata:
 | 更新数据（单条） | `update_entry` |
 | 批量更新数据（一次最多 200 条，PATCH） | `patch_entries` |
 | 删除数据（单条） | `delete_entry` |
+| 把本地上传的 Excel / CSV 导入表单/表格（后台任务） | `import_entries_from_file` |
+| 列出对外查询页 | `list_opensearch_queries` |
+| 查看对外查询页配置 | `get_opensearch_query` |
+| 创建对外查询页（访客自助查数据） | `create_opensearch_query` |
+| 编辑 / 启停对外查询页 | `edit_opensearch_query` |
 | 当前用户信息 | `get_current_user` |
 | 当前企业账户/套餐 | `get_current_billing_account` |
 | 列出团队成员 | `list_account_users` |
@@ -136,6 +156,48 @@ metadata:
    注意：不幂等，重复提交会产生重复数据；失败后不要整批重发，按 errors 下标只补失败行
 ```
 
+**⑥ 从本地上传的表格文件导入**（用户在对话里上传了 Excel / CSV，要写进某张表单 / 表格）
+```
+1. 先读文件（read_raw_content）看表头，get_form / get_table 拿目标字段 api_code
+2. 组好 column_mapping（每列 → field_api_code；表头唯一时用 column_label，
+   有重名/空表头才用 sheet_column_index）；需要去重传 unique_field_code
+3. import_entries_from_file 调用一次即返回——它是后台任务
+4. 告诉用户"导入已开始，进度看数据页"，然后停手：
+   别轮询、别重复调用、别自己再逐行写数据
+   报错 = 一行都没导入（校验在起任务前完成）：读错误、改参数、只重试一次
+   （空表会先清掉占位空行）
+```
+
+**⑦ 多维表格（Tables）**
+```
+- 表格是独立于表单的资源：list_tables / get_table / create_table / edit_table / move_table，
+  不要用 list_forms / get_form 那套去操作表格
+- 建空表（暂时没有数据要进）传 with_default_entries:true 补几行空行，否则空网格看着像坏了；
+  紧接着要导数据 / create_entries 就别开，免得数据落在空行下面
+- 表格字段类型是表单的子集，选项类只支持单选(RadioButton)/多选(CheckBox)；
+  FormulaField 引用列同表单：本请求内新列用 <gd-field data-cid="...">，已有列用 data-api-code
+- 移动表格只能进 kind="table" 的文件夹（先 list_folders 找），表单文件夹放不了表格
+```
+
+**⑧ 视图筛选（Views）**
+```
+1. get_form → 拿字段 api_code
+2. create_form_view：view_type 传 grid（表格）/ kanban（看板）/ stats（统计）
+   看板要传 kanban_group_by_api_code（按哪个选择字段分列）、kanban_card_title_api_code
+   filters 与 list_entries 同一套 {field, operator, value}（AND 组合，OR 分组只能在网页端编辑）
+3. 按视图取数用 list_form_view_entries（自动套用视图的筛选/排序/列偏好），next 翻页
+4. edit_form_view 只改传入项；delete_form_view 删不掉预设视图和最后一个视图
+```
+
+**⑨ 对外查询页（访客自助查数据）**
+```
+1. 先 list_opensearch_queries 看该表单是否已有，避免重复建
+2. create_opensearch_query：search_field_rules 定义访客可用哪些字段查、
+   display_field_rules 定义查到后展示哪些字段；allow_to_export_results 默认 false
+3. 返回 url（发给访客）+ admin_url（后台管理）；仅表单管理员能建
+4. edit_opensearch_query 改配置，enabled:false 下线该查询页、true 重新开启
+```
+
 ### 关键格式规范
 
 **entry payload 的键是 `api_code`，不是中文 label：**
@@ -190,6 +252,14 @@ metadata:
 - **考试开限时又把题目设必填** → `show_timeout=true` 与题目字段 `required` 互斥；默认不开限时，仅用户明确要求时开
 - **FormulaField 引用同一请求新增的字段** → 新字段还没有 api_code，公式里用 `<gd-field data-cid="...">` 引用其 `cid`，不要猜 api_code
 - **编辑考试/测评题目时只传改动的 answers 项** → answers 是整体替换语义，会重建整个答案库；必须传完整列表
+- **给选项设 `quota:0` 想表示"不限量"** → `0` 是"名额已满"，该选项会显示但置灰不可选；不限量就**省略 `quota`**，正整数才是名额上限
+- **`import_entries_from_file` 后去轮询 / 重复调用 / 自己再逐行写数据** → 它是后台任务，调一次即返回；只需告诉用户"已开始、进度看数据页"然后停手。它报错 = 一行都没导入（校验在起任务前完成），读错误改参数、只重试一次
+- **拿 `list_forms` / `get_form` / `edit_form` 去操作表格** → 表格是独立资源，用 `list_tables` / `get_table` / `edit_table`；`get_table` 对非表格资源直接报错
+- **`create_table` 建空表不传 `with_default_entries`** → 空网格看着像坏了；暂时没数据进就传 `true` 补空行，紧接着要导数据就别开（免得真实数据落在空行下面）
+- **把表格移进表单文件夹** → 表格只能进 `kind="table"` 的文件夹，先 `list_folders` 找；`move_table` 省略 `folder_token` 表示移回根目录
+- **删预设视图或最后一个视图** → `delete_form_view` 拒绝；只能删自建且非最后一个的视图
+- **`edit_form_view` 传 OR 分组的 filters** → MCP 只支持 AND 组合，OR 分组会被拍平成 AND（OR 需在网页端编辑）
+- **让非表单管理员建 / 改对外查询页** → 被拒（只有该表单的管理员能操作 `create_opensearch_query` / `edit_opensearch_query`）
 - **限流报错（HTTP 429 / code 14003）把原始 JSON 抛给用户** → 不友好；改为告知"接口请求频繁，请等 1–2 分钟后重试"，并放慢节奏、合并可批量的请求降低调用频次；不要立刻疯狂重试
 
 ## Verification
@@ -201,6 +271,10 @@ metadata:
 - **update_entry**：返回的字段值与提交值一致
 - **patch_entries**：返回 `updated_count` 与提交行数一致，`failed_rows` 为空（有部分失败时按 serial_number 核对 reason）
 - **delete_entry**：后续 `get_entry` 返回 404 或条目不再出现在 `list_entries`
+- **create_table / edit_table**：返回含 `token`，`get_table` 能读到刚建/改的字段
+- **create_form_view / edit_form_view**：返回含视图 `token`，`list_form_view_entries` 能按其筛选取数
+- **import_entries_from_file**：调用成功即代表任务已入队；不在本轮核对行数，让用户去数据页看进度
+- **create_opensearch_query**：返回含 `url`（对外）与 `admin_url`（后台），访问 `url` 可打开查询页
 - **批量操作**：向用户汇报"共 N 条，成功 X 条，失败 Y 条"
 
 ## MCP 配置

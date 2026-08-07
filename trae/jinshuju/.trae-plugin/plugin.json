@@ -1,0 +1,25 @@
+{
+  "name": "jinshuju",
+  "version": "1.0.0",
+  "displayName": "金数据",
+  "displayNameEn": "Jinshuju",
+  "description": "用自然语言在金数据（jinshuju.net）上搭建表单与数据表格：创建、复制、编辑表单与主题，建表加列，批量增删改查数据，查询账户套餐与团队成员，替代登录后台手动操作。",
+  "descriptionEn": "Build forms and tables on Jinshuju (jinshuju.net) with natural language: create, copy, and edit forms and themes, manage table columns, batch create/update/query/delete entries, and check plan quota and team members — no dashboard login needed.",
+  "author": {
+    "name": "Jinshuju",
+    "email": "marketing@jinshuju.net"
+  },
+  "license": "MIT",
+  "logo": "./icon.svg",
+  "keywords": [
+    "jinshuju",
+    "金数据",
+    "form",
+    "survey",
+    "table",
+    "data-collection"
+  ],
+  "skills": "./skills/",
+  "mcp": "./.mcp.json",
+  "connector": "./connector.json"
+}
