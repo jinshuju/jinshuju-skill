@@ -1,0 +1,9 @@
+{
+  "connectors": {
+    "jinshuju": {
+      "type": "remote_mcp",
+      "mcp_server": "jinshuju",
+      "auth_policy": "ON_INVOKE"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "jinshuju": {
+      "type": "http",
+      "url": "https://jinshuju.net/mcp",
+      "timeout": 30000
+    }
+  }
+}
