@@ -1,7 +1,7 @@
 ---
 name: jinshuju-skill
-description: 金数据（Jinshuju，jinshuju.net）操作技能 —— 创建/复制/编辑表单与主题，增删改查与批量修改表单数据，上传图片附件，查询账户套餐与团队成员。触发词：金数据、Jinshuju、jinshuju.net、form_token、表单、报名表、问卷、数据录入、数据查询、批量修改。
-version: "1.0.0"
+description: 金数据（Jinshuju，jinshuju.net）操作技能 —— 创建/复制/编辑表单与主题，增删改查与批量修改表单数据，把本地上传的 Excel/CSV 导入表单，建视图筛选与对外查询页，上传图片附件，查询账户套餐与团队成员。触发词：金数据、Jinshuju、jinshuju.net、form_token、表单、报名表、问卷、数据录入、数据查询、批量修改、数据导入。
+version: "1.1.0"
 author: "Jinshuju"
 ---
 
@@ -29,6 +29,7 @@ author: "Jinshuju"
 |------|------|----------|
 | `list_forms` | 列出可访问的表单 | `name`(正则关键字,可选)、`next`、`limit` |
 | `list_folders` | 列出文件夹，取 `folder_token` | — |
+| `create_folder` | 新建文件夹 | `name` ✅、`kind`(form/table) |
 | `get_form` | 取表单完整结构（字段、API 名、类型） | `form_token` ✅ |
 | `check_field_data` | 写数据前预检字段值是否合法 | `form_token` ✅、`fields` |
 | `create_form` | 新建表单 | `name` ✅、`fields` ✅、`folder_token`(可选) |
@@ -54,6 +55,17 @@ author: "Jinshuju"
 | `create_entries` | 批量新增（导入）数据 | `form_token` ✅、`entries`[] ✅ |
 | `update_entry` | 更新单条数据 | `form_token` ✅、`entry_id` ✅、`entry` |
 | `delete_entry` | 删除单条数据 | `form_token` ✅、`entry_id` ✅ |
+| `import_entries_from_file` | 把本地上传的 Excel/CSV 导入表单（后台任务，调一次即返回，别轮询） | `form_token` ✅、`attachment_id` ✅、`column_mapping` ✅ |
+
+### 视图与对外查询（scope: forms / read_entries）
+
+| 工具 | 用途 |
+|------|------|
+| `list_form_views` / `get_form_view` | 列出 / 查看表单视图 |
+| `create_form_view` / `edit_form_view` / `delete_form_view` | 建 / 改 / 删视图（grid 表格、kanban 看板、stats 统计；预设视图与最后一个视图不可删） |
+| `list_form_view_entries` | 按视图的筛选 / 排序 / 列偏好列出数据 |
+| `list_opensearch_queries` / `get_opensearch_query` | 列出 / 查看对外查询页 |
+| `create_opensearch_query` / `edit_opensearch_query` | 建 / 改对外查询页（访客自助查数据；仅表单管理员可操作） |
 
 ### 上传（scope: forms / write_entries）
 
@@ -84,3 +96,5 @@ author: "Jinshuju"
 - 分页统一走响应里的 `next` 游标；`limit` 越界会自动截断。
 - 批量修改/删除不可逆，执行前向用户复述影响范围并确认。
 - 报 `Insufficient scope` 时，说明缺哪个 scope，提示用户重新授权勾选对应权限。
+- `import_entries_from_file` 是后台任务：调一次即返回，告知用户"已开始、进度看数据页"后停手，别轮询或自己再逐行写；它报错 = 一行都没导入，改参数只重试一次。
+- 选项的 `quota` 省略 = 不限量，正整数 = 名额上限；**勿传 `0`**（0 = 名额已满、选项置灰不可选）。
