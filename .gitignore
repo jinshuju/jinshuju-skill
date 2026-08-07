@@ -1,0 +1,7 @@
+# OS / editor cruft
+.DS_Store
+
+# Packaged skill artifacts — built from the SKILL.md folders, distributed via releases, not committed
+*.zip
+*.tar.gz
+*.tgz
