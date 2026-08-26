@@ -1,7 +1,7 @@
 ---
 name: jinshuju-skill
-description: 金数据（Jinshuju，jinshuju.net）操作技能 —— 创建/复制/编辑表单与主题，增删改查与批量修改表单数据，把本地上传的 Excel/CSV 导入表单，建视图筛选与对外查询页，上传图片附件，查询账户套餐与团队成员。触发词：金数据、Jinshuju、jinshuju.net、form_token、表单、报名表、问卷、数据录入、数据查询、批量修改、数据导入。
-version: "1.1.0"
+description: 金数据（Jinshuju，jinshuju.net）操作技能 —— 创建/复制/编辑表单与主题，增删改查与批量修改表单数据，把本地上传的 Excel/CSV 导入表单，建视图筛选与对外查询页，在服务端统计数据（条数/分组/趋势/分布画像）与跨表单搜关键字，上传图片附件，查询账户套餐与团队成员。触发词：金数据、Jinshuju、jinshuju.net、form_token、表单、报名表、问卷、数据录入、数据查询、批量修改、数据导入、数据统计、数据分析、跨表单搜索。
+version: "1.2.0"
 author: "Jinshuju"
 ---
 
@@ -49,13 +49,26 @@ author: "Jinshuju"
 
 | 工具 | 用途 | 关键参数 |
 |------|------|----------|
-| `list_entries` | 按条件查询数据，支持字段值下推过滤 | `form_token` ✅、`filter`、`next`、`limit` |
+| `list_entries` | 按条件查询数据，支持下推过滤、关键字搜索、裁列、排序 | `form_token` ✅、`filters`、`keyword`、`fields`、`sort`、`next`、`limit` |
 | `get_entry` | 取单条数据详情 | `form_token` ✅、`entry_id` ✅ |
 | `create_entry` | 新增单条数据 | `form_token` ✅、`entry`(字段 API 名→值) ✅ |
 | `create_entries` | 批量新增（导入）数据 | `form_token` ✅、`entries`[] ✅ |
 | `update_entry` | 更新单条数据 | `form_token` ✅、`entry_id` ✅、`entry` |
 | `delete_entry` | 删除单条数据 | `form_token` ✅、`entry_id` ✅ |
 | `import_entries_from_file` | 把本地上传的 Excel/CSV 导入表单（后台任务，调一次即返回，别轮询） | `form_token` ✅、`attachment_id` ✅、`column_mapping` ✅ |
+
+### 统计分析与搜索（scope: read_entries）
+
+统计一律留在服务端，**不要**翻页拉全量明细回来自己算。
+
+| 工具 | 用途 | 关键参数 |
+|------|------|----------|
+| `count_entries` | 只数条数，不返回数据 | `form_token` ✅、`filters`、`keyword` |
+| `aggregate_entries` | 整列统计，可按 1~2 个字段分组、日期按天/周/月分桶 | `form_token` ✅、`metrics`(1~20 个 `{func, field}`) ✅、`dimensions`、`limit`(默认 20/上限 200)、`filters` |
+| `get_form_data_summary` | 整张表单画像：每个字段的分布 / 数值统计 / 填答率 | `form_token` ✅、`fields`、`include_overview`、`filters` |
+| `search_entries_in_forms` | 一次在 ≤10 张表单里搜同一关键字，返回命中数与流水号 | `form_tokens` ✅、`keyword` ✅ |
+
+可用聚合函数与可分组字段由字段类型决定，读 `get_form` 返回的 `analytics.agg_funcs` / `analytics.groupable`（过滤 operator 读 `operators`），别猜。
 
 ### 视图与对外查询（scope: forms / read_entries）
 
@@ -97,4 +110,7 @@ author: "Jinshuju"
 - 批量修改/删除不可逆，执行前向用户复述影响范围并确认。
 - 报 `Insufficient scope` 时，说明缺哪个 scope，提示用户重新授权勾选对应权限。
 - `import_entries_from_file` 是后台任务：调一次即返回，告知用户"已开始、进度看数据页"后停手，别轮询或自己再逐行写；它报错 = 一行都没导入，改参数只重试一次。
+- 要"多少 / 多少钱 / 最多的是哪个 / 趋势"用 `count_entries` / `aggregate_entries` / `get_form_data_summary`；只有要看具体记录时才 `list_entries`，并用 `fields` 裁列、`sort` 排序。
+- `aggregate_entries` / `get_form_data_summary` 没有 `keyword` 参数，也不支持按 `creator_id` 过滤；多值字段（多选/级联/矩阵/地址/表格）不能当分组维度，它们的分布用 `get_form_data_summary`。
+- `search_entries_in_forms` 里带 `unavailable` 的表单是**没搜成**（无权限 / 超 99999 条无 ClickHouse / 服务未响应），必须单独重试，**不能**汇报成"没命中"；响应里完全没出现的 token 才是"搜过没命中"。
 - 选项的 `quota` 省略 = 不限量，正整数 = 名额上限；**勿传 `0`**（0 = 名额已满、选项置灰不可选）。

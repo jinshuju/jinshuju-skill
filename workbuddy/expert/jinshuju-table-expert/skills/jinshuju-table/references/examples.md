@@ -115,9 +115,12 @@
    ]
    ```
    `next` 翻页拿全部命中
-3. 对话侧投影三列，手机号脱敏，Markdown 表格展示 + 总数
+3. 同一次调用里把列和排序交给服务端：`fields=["field_name","field_mobile","field_next"]`、`sort=[{"api_code":"field_next","order":"asc"}]`、`limit=20`
+4. 手机号脱敏，Markdown 表格展示 + 总数
 
-> ⚠️ 选项列 value 传**选项 api_code** 不是 label；`list_entries` 不支持任意列排序，倒序 / 取前 N 在对话侧做。
+> ⚠️ 选项列 value 传**选项 api_code** 不是 label；列名写错会被拒并列出该表实际列。排序用 `sort`，不必在对话侧倒序——但注意传了 `sort` 后 `next` 是行偏移量。
+>
+> 要"多少行 / 合计多少 / 哪类最多 / 按天趋势"时别拉行数据回来自己算：`count_entries` 数行数，`aggregate_entries` 做分组与分桶统计（公式列也能聚合），`get_form_data_summary` 出整张表每列的分布与填充率。
 
 ### 3.2 补录一行
 
