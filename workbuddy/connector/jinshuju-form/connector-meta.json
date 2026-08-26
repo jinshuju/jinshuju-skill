@@ -1,0 +1,21 @@
+{
+    "name": "金数据 · 表单",
+    "name_zh": "金数据 · 表单",
+    "name_en": "Jinshuju · Forms",
+    "description": "Build forms and manage form data on Jinshuju with natural language.",
+    "description_zh": "搭建报名、问卷、预约、收款等表单，增删改查、批量导入导出数据，替代登录后台操作。",
+    "description_en": "Create forms for registration, questionnaires, appointments, and payments, and perform CRUD operations, as well as batch import and export of data, replacing backend login operations.",
+    "source": "jinshuju",
+    "type": "mcp",
+    "version": "1.0.0",
+    "examples_zh": [
+        "帮我做一个训练营报名表，299 元一位，限 60 人报名",
+        "帮我分析这个月的满意度调研数据，看看用户最关心的问题是什么",
+        "查一下上周报名表里还没缴费的人，列个清单"
+    ],
+    "examples_en": [
+        "Please help me create a training camp registration form. It costs 299 yuan per person, and there's a limit of 60 people who can register.",
+        "Please help me analyze this month's satisfaction survey data to see what users care about most.",
+        "Check the registration forms from last week for those who haven't paid yet, and make a list."
+    ]
+}
