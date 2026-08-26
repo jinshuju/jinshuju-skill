@@ -1,16 +1,16 @@
 # 金数据表格 MCP 工具参考
 
-金数据表格 MCP 端点：`https://jinshuju.net/mcp`（与表单共用端点）。表格结构工具需账户开通「新版表格」。以下按 `数据表结构` → `行数据 Entries` → `统计分析` → `上传` → `账户与团队` 分组。
+金数据表格 MCP 端点：`https://jinshuju.net/mcp`（与表单共用端点）。表格工具对所有账号开放，不再需要单独开通「新版表格」。以下按 `数据表结构` → `行数据 Entries` → `统计分析` → `上传` → `账户与团队` 分组。
 
 > 通用约定：
 > - 表结构工具用**表 token / id** 定位；行数据工具的 `form_token` 参数直接填**表 token**。
 > - 行数据读写一律用**列 `api_code`**，选项列用 `choices[].api_code`，不是中文列名 / label。
 > - 分页统一走响应里的 `next` 游标；`limit` 越界自动截断。
-> - 报 `Insufficient scope: <name> required` 说明缺对应 OAuth scope；报未开通新版表格说明账户需在后台开通。
+> - 报 `Insufficient scope: <name> required` 说明缺对应 OAuth scope，提示用户重新授权勾选。
 
 ---
 
-## 一、数据表结构（scope: forms，需开通新版表格）
+## 一、数据表结构（scope: forms）
 
 ### list_tables — 列出数据表
 
@@ -195,5 +195,5 @@
 | 工具 | scope | 用途 |
 |------|-------|------|
 | `get_current_user` | `user` | 当前用户信息 |
-| `get_current_billing_account` | `billing_account` | 企业套餐与用量（确认是否开通新版表格）|
+| `get_current_billing_account` | `billing_account` | 企业套餐与用量 |
 | `list_account_users` | `billing_account` | 团队成员列表 |

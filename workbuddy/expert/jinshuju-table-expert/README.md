@@ -20,7 +20,7 @@ jinshuju-table-expert/
 
 ## 依赖
 
-召唤本专家前，WorkBuddy 会引导用户连接**金数据 MCP**（`https://jinshuju.net/mcp`，OAuth 授权）。表单与表格共用同一 MCP 端点；**表格结构工具需账户开通「新版表格」**。授权范围决定可用工具集：`forms`（表结构）/ `read_entries` / `write_entries`（行数据）/ `user` / `billing_account`。
+召唤本专家前，WorkBuddy 会引导用户连接**金数据 MCP**（`https://jinshuju.net/mcp`，OAuth 授权）。表单与表格共用同一 MCP 端点。授权范围决定可用工具集：`forms`（表结构）/ `read_entries` / `write_entries`（行数据）/ `user` / `billing_account`。
 
 ## 打包提交
 
