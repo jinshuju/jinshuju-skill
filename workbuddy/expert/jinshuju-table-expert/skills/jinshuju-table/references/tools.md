@@ -1,6 +1,6 @@
 # 金数据表格 MCP 工具参考
 
-金数据表格 MCP 端点：`https://jinshuju.net/mcp`（与表单共用端点）。表格结构工具需账户开通「新版表格」。以下按 `数据表结构` → `行数据 Entries` → `上传` → `账户与团队` 分组。
+金数据表格 MCP 端点：`https://jinshuju.net/mcp`（与表单共用端点）。表格结构工具需账户开通「新版表格」。以下按 `数据表结构` → `行数据 Entries` → `统计分析` → `上传` → `账户与团队` 分组。
 
 > 通用约定：
 > - 表结构工具用**表 token / id** 定位；行数据工具的 `form_token` 参数直接填**表 token**。
@@ -95,8 +95,12 @@
 
 ### list_entries — 列出行
 
-**输入**：`form_token`(表 token) ✅、`filters`（`[{field, operator, value}]` 下推过滤，多条件 AND）、`next`（游标）、`limit`（≤50）。
-**输出**：`{ data: [行…], next, … }`。列值键是列 `api_code`。不支持任意列排序 / group by，排序、聚合在对话侧做。
+**输入**：`form_token`(表 token) ✅、`filters`（`[{field, operator, value}]` 下推过滤，多条件 AND）、`keyword`（一次搜整张表所有可搜列，≤200 字符）、`fields`（只返回这些列的 `api_code`，宽表必传）、`sort`（`[{api_code, order}]`，`order` 取 `asc` / `desc`）、`next`（游标）、`limit`（≤50）。
+**输出**：`{ total, count, data: [行…], next }`。列值键是列 `api_code`；`serial_number` / `token` 恒返回。
+
+- 排序交给 `sort`，**不要**拉回来再本地排；列名写错（`fields` / `sort` / `filters` 任一处）会被拒并列出该表实际列，不会静默丢列或回落默认排序
+- ⚠️ 传了 `sort` 时 `next` 是**行偏移量**，不传时是 `serial_number` 游标——两种都把上一页的 `next` 原样回传
+- 聚合 / group by 不在这里做，用下面的「统计分析」三件套
 
 **filters operator 速查**
 
@@ -104,7 +108,8 @@
 |----------|--------|-------|
 | `eq` / `ne` | 所有 | 标量 |
 | `gt` / `gte` / `lt` / `lte` | 数字、日期 | 标量 |
-| `between` | 数字、日期 | `[min, max]` |
+| `between` / `not_between` | 数字、日期 | `[min, max]` |
+| `within_last` | 日期类（含 `created_at`） | `{"unit":"day"/"week"/"month","n":正整数}` |
 | `any_in` / `none_in` | 文本、选项 | 数组 |
 | `like` / `not_like` | 文本、选项 | 子串（**不带 %**）|
 | `null` / `not_null` | 所有 | 省略 |
@@ -140,7 +145,44 @@
 
 ---
 
-## 三、上传（scope: write_entries）
+## 三、统计分析（scope: read_entries）
+
+这三个工具把统计留在服务端，响应大小与行数无关；`form_token` 同样填**表 token**。要"多少行 / 合计多少 / 哪类最多 / 趋势怎么样"时用它们，别翻页拉全量回来自己算。
+
+### count_entries — 只数行数
+
+**输入**：`form_token`(表 token) ✅、`filters`、`keyword`。**输出**：`{ total }`。要分析或翻页前先用它探范围。
+
+### aggregate_entries — 服务端统计（可分组）
+
+**输入**：`form_token`(表 token) ✅、`metrics`（1~20 个 `{ func, field }`）✅、`dimensions`（1~2 个 `{ field, bucket? }`）、`limit`（分组数，默认 20 / 上限 200）、`filters`。
+
+- `func`：`count` / `count_non_empty` / `count_empty` / `count_unique` / `sum` / `avg` / `min` / `max` / `stddev` / `median` / `p25` / `p75` / `p90`，**按列类型受限**——函数与列不匹配会报错并列出该列支持的函数（`get_table` 不返回这份自描述，以报错为准）。公式列也能聚合
+- `dimensions`：单选列、日期列可分组；**多选列会被拒**（一行会落进多个组），它的分布用 `get_form_data_summary`。日期列**必须**带 `bucket`（`day` / `week` / `month`，按 `Asia/Shanghai`、周一为一周起点）
+- **输出**：`{ columns, rows, total, tz }`；分组时还有 `row_count`（分组总数）和 `truncated`（是否只是按 `limit` 截断的一段）。单选列维度的键是 `{ api_code, label }`，维度值为 `null` 的那组 = 该列没填的行
+
+```json
+{ "form_token": "<表 token>",
+  "metrics": [{ "func": "sum", "field": "field_4" }, { "func": "avg", "field": "field_2" }],
+  "dimensions": [{ "field": "created_at", "bucket": "day" }] }
+```
+
+### get_form_data_summary — 整张表数据画像
+
+**输入**：`form_token`(表 token) ✅、`fields`（要画像的列，默认全部可分析列 + `created_at`，上限 60）、`include_overview`（默认 `true`）、`filters`。
+
+**输出**：`overview`（`total_entries` / `today_entries`）+ 每列一项：`kind` 为 `choice` 时给 `buckets`（`api_code` / `label` / `count` / `ratio`），`number` 给 `stats`（`min` / `max` / `sum` / `avg`），`date` 给 `earliest` / `latest`，`text` 给 `count_unique`；每列都有 `answered` 与 `null_count`。
+
+> `aggregate_entries` / `get_form_data_summary` **没有** `keyword` 参数，也不支持按 `creator_id` 过滤（会被拒）。
+
+### search_entries_in_forms — 跨表 / 跨表单搜关键字
+
+**输入**：`form_tokens`（≤10 个表 / 表单 token）✅、`keyword` ✅。
+**输出**：`{ total, forms: [{ form_token, name, matched, serial_numbers }] }`——`total` 是命中**行总数**，`serial_numbers` 每张最多列 50 个；没命中的表直接不出现；带 `unavailable` 的表是**没搜成**（无权限 / 超 99999 行无 ClickHouse / 服务未响应），必须单独重试，**不能**当成"没命中"。不接受 `filters`（同一 `api_code` 在不同表指向不同列）。
+
+---
+
+## 四、上传（scope: write_entries）
 
 ### prepare_entry_attachment_upload — 附件列上传凭证
 
@@ -148,7 +190,7 @@
 
 ---
 
-## 四、账户与团队
+## 五、账户与团队
 
 | 工具 | scope | 用途 |
 |------|-------|------|

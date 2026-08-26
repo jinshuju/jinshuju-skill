@@ -74,15 +74,23 @@
    ]
    ```
    服务端按 `created_at` 升序返回，单次 50 条，用 `next` 翻页拿全部命中
-3. 在对话侧只做剩下的：倒序（filters 不支持任意字段倒序）、取前 20、投影姓名 / 手机号 / 公司
+3. 同一次调用里把排序和列都交给服务端，别拉回来再处理：
+   ```
+   sort=[{"api_code": "created_at", "order": "desc"}]
+   fields=["field_name", "field_mobile", "field_company", "created_at"]
+   limit=20
+   ```
 
 **预期输出**：Markdown 表格 + 手机号默认脱敏 + 总匹配数。
 
 > ⚠️ 关键约束：
 > - 选项字段的 value 传**选项 api_code**（`city_sh`），不是 label（`"上海"`）
 > - `filters` 多条件是 **AND** 关系；operator 跟字段类型不匹配会 400 拒并列出可用 operator
-> - `list_entries` 不支持任意字段排序——倒序、取前 N 仍需本地做
+> - 字段名写错（`fields` / `sort` / `filters` 任一处）会被**拒**并列出该表单实际字段，不会静默丢列或静默返回 0 条
+> - 传了 `sort` 时 `next` 是**行偏移量**，不传时是 `serial_number` 游标——两种都把上一页的 `next` 原样回传
+> - "最近 7 天"这类相对区间直接用 `within_last`：`{"field":"created_at","operator":"within_last","value":{"unit":"day","n":7}}`，不用自己算时间戳
 > - `like` 是子串匹配（不区分大小写），不是 SQL 通配符——传 `"张"` 就行，不要传 `"张%"`
+> - 不知道值在哪个字段时用 `keyword`（一次搜该表单所有可搜字段），别逐字段发 `like`
 
 ### 2.2 汇总统计
 
@@ -91,15 +99,28 @@
 > 统计"春季发布会报名表"里各参会城市的报名人数，按人数倒序。
 
 **AI 调用**：
-1. `get_form` 拿"参会城市"字段及其 `choices[]`（存 api_code → label 的映射用于展示）
-2. `list_entries` 用 filters 把时间范围下推（如果只统计某段时间）：
+1. `get_form` 看"参会城市"字段的 `analytics.groupable`（能不能当分组维度）与 `analytics.agg_funcs`
+2. `aggregate_entries` 让服务端分组计数——**不要**翻页拉明细回来自己数：
    ```
-   filters=[{"field": "created_at", "operator": "gte", "value": "<起始时间>"}]
+   metrics=[{"func": "count", "field": "field_city"}]
+   dimensions=[{"field": "field_city"}]
+   limit=20
    ```
-   翻页拉回需要的范围
-3. 对话侧按城市字段的 api_code 分组计数，输出时把 api_code 映射回 label
+   返回 `columns` + `rows`，分组已按第一个指标降序；选项维度的键是 `{api_code, label}`，直接拿 label 展示
+3. 看 `row_count` 和 `truncated`：`truncated=true` 说明你只拿到前 `limit` 组（默认 20 / 上限 200），别把一段说成全部；维度值为 `null` 的那组是"没填城市"的条目，照实说明
 
-（MCP 没有 group by / count 类聚合接口，聚合必须在对话侧做；但**前置条件能用 filters 收缩就用**——把数据量在数据库这一层先打下来再算）
+**变体**：
+
+| 问题 | 调用 |
+| ---- | ---- |
+| 一共多少条 / 最近 7 天多少条 | `count_entries`（配 `filters` 里的 `within_last`） |
+| 客单价的均值、中位数、P90 | `aggregate_entries`，`metrics=[{"func":"avg"...},{"func":"median"...},{"func":"p90"...}]`（一次最多 20 个指标） |
+| 每天 / 每周 / 每月的报名趋势 | `aggregate_entries`，`dimensions=[{"field":"created_at","bucket":"day"}]`（日期维度**必须**带 `bucket`） |
+| 各城市 × 各渠道的交叉统计 | `dimensions` 传两个字段（最多 2 个） |
+| 整张表单每个字段的分布 / 填答率 | `get_form_data_summary`（几 KB 就出全貌，含 `answered` / `null_count`） |
+| 多选 / 级联 / 矩阵字段的分布 | `get_form_data_summary`——这类多值字段**不能**当 `dimensions`（会被拒） |
+
+> ⚠️ `aggregate_entries` / `get_form_data_summary` **没有** `keyword` 参数，也不支持按 `creator_id` 过滤（会被拒）。带 `keyword` 数出来的条数和不带 `keyword` 的统计不是同一批数据，别摆在一起讲。
 
 ### 2.3 查看单条详情
 
@@ -117,6 +138,30 @@
 3. 拿到 `serial_number` 后，调 `get_entry(form_token, serial_number)` 拿完整详情（如果 list_entries 返回的 api_value 已经够用，可以省略这步）
 
 > ⚠️ `get_entry` / `update_entry` / `delete_entry` 都靠 **`serial_number`**（整数）定位，不是 token、不是 id。
+
+### 2.4 跨表单找一个值
+
+**Prompt：**
+
+> 我这几张表单里有没有提到"某某科技"？在哪几条？
+
+**AI 调用**：
+1. `list_forms` 拿候选表单 token（一次最多 10 张，多了拆几次调用）
+2. `search_entries_in_forms`：
+   ```
+   form_tokens=["abCdEf", "gHiJkL", "mNoPqR"]
+   keyword="某某科技"
+   ```
+   返回每张命中表单的 `matched`（命中条数）+ `serial_numbers`（最多列 50 个），**不含字段值**
+3. 读响应的三条规则：
+   - `total` 是所有表单命中的**条目总数**，不是表单数
+   - 响应里**完全没出现**的 token = 搜过了、没命中
+   - 带 `unavailable` 的表单 = **没搜成**（无权限 / 超 99999 条无 ClickHouse / 服务未响应），必须单独重试，**绝不能**汇报成"没命中"
+4. 要看内容：单条 `get_entry(form_token, serial_number)`；某张表单的全部命中 `list_entries(form_token, keyword)` 翻页（`matched` 大于列出的 `serial_numbers` 个数时用它取剩下的）
+
+**预期输出**：先说"3 张表单里 2 张命中，共 7 条"，再按表单列出命中的流水号，最后才按需展开内容。
+
+> ⚠️ `search_entries_in_forms` 不接受 `filters`——同一个 `api_code` 在不同表单指向不同字段。定位到表单后再用 `list_entries` / `count_entries` 按字段过滤。响应也无法告诉你命中的是哪个字段（引擎把所有可搜字段 OR 成一条查询），要知道就去读那几条数据。
 
 ---
 
@@ -269,6 +314,9 @@ Yoshi AI 会按 prompt（或自动从表单标题 / 描述推断）生成一张�
 | --- | --- |
 | 创建表单 | `帮我建一个"<名称>"，字段：<字段列表>，主题<风格>` |
 | 列出数据 | `查"<表单名>"里 <条件>，按<字段>倒序前 <N> 条，只要<字段>` |
+| 统计分析 | `统计"<表单名>"里 <维度> 的 <指标>，按 <天/周/月> 看趋势` |
+| 数据画像 | `"<表单名>"现在的数据长什么样？每个字段的填答率和分布给我看看` |
+| 跨表单搜索 | `我这几张表单里有没有提到"<关键字>"？在哪几条` |
 | 修改数据 | `把"<表单名>"里 <条件> 的记录，<字段>都改成 "<值>"` |
 | 复制改造 | `复制"<A>"成"<B>"，<修改点>` |
 | 生成头图 | `给"<表单名>"换个头图，<风格描述>` |

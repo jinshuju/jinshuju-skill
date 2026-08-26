@@ -1,6 +1,6 @@
 # 金数据 MCP 工具完整参考
 
-本文档列出当前对外开放的 **30 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
+本文档列出当前对外开放的 **34 个 MCP 工具**，每个工具包含一句话用途、输入参数、输出字段、所需 OAuth scope 和常见错误。
 
 > 工具的实际暴露名可能带客户端前缀（如 `mcp__jinshuju__list_forms`），按客户端实际名字调用即可，本文统一用裸名。
 
@@ -11,7 +11,8 @@
 | **Forms** | [`list_forms`](#list_forms) · [`list_my_submitted_forms`](#list_my_submitted_forms) · [`list_folders`](#list_folders) · [`create_folder`](#create_folder) · [`get_form`](#get_form) · [`get_field_rules`](#get_field_rules) · [`check_field_data`](#check_field_data) · [`create_form`](#create_form) · [`copy_form`](#copy_form) · [`move_form`](#move_form) · [`edit_form`](#edit_form) · [`edit_field_rules`](#edit_field_rules) · [`edit_theme`](#edit_theme) |
 | **考试 / 测评** | [`create_exam_form`](#create_exam_form) · [`edit_exam_form`](#edit_exam_form) · [`create_evaluation_form`](#create_evaluation_form) · [`edit_evaluation_form`](#edit_evaluation_form) |
 | **上传** | [`prepare_form_image_upload`](#prepare_form_image_upload) · [`prepare_entry_attachment_upload`](#prepare_entry_attachment_upload) |
-| **Entries** | [`list_entries`](#list_entries) · [`list_my_submitted_entries`](#list_my_submitted_entries) · [`get_entry`](#get_entry) · [`create_entry`](#create_entry) · [`create_entries`](#create_entries) · [`update_entry`](#update_entry) · [`patch_entries`](#patch_entries) · [`delete_entry`](#delete_entry) |
+| **Entries** | [`list_entries`](#list_entries) · [`list_my_submitted_entries`](#list_my_submitted_entries) · [`get_entry`](#get_entry) · [`create_entry`](#create_entry) · [`create_entries`](#create_entries) · [`update_entry`](#update_entry) · [`patch_entries`](#patch_entries) · [`delete_entry`](#delete_entry) · [`search_entries_in_forms`](#search_entries_in_forms) |
+| **统计分析** | [`count_entries`](#count_entries) · [`aggregate_entries`](#aggregate_entries) · [`get_form_data_summary`](#get_form_data_summary) |
 | **Account** | [`get_current_user`](#get_current_user) · [`get_current_billing_account`](#get_current_billing_account) · [`list_account_users`](#list_account_users) |
 
 ## OAuth Scope 速查
@@ -20,7 +21,7 @@
 | ----- | -------- |
 | `forms` | list_forms / list_my_submitted_forms / list_folders / create_folder / get_form / get_field_rules / check_field_data / create_form / copy_form / move_form / edit_form / edit_field_rules / create_exam_form / edit_exam_form / create_evaluation_form / edit_evaluation_form / prepare_form_image_upload（type=field_choice） |
 | `form_setting` | edit_theme / prepare_form_image_upload（type=header） |
-| `read_entries` | list_entries / list_my_submitted_entries / get_entry |
+| `read_entries` | list_entries / list_my_submitted_entries / get_entry / search_entries_in_forms / count_entries / aggregate_entries / get_form_data_summary |
 | `write_entries` | create_entry / create_entries / update_entry / patch_entries / delete_entry / prepare_entry_attachment_upload |
 | `user` | get_current_user |
 | `billing_account` | get_current_billing_account / list_account_users |
@@ -84,6 +85,7 @@
 | ---- | ---- | ---- | ---- |
 | `next` | integer | 否 | 翻页偏移量（上次响应里的 `next`） |
 | `limit` | integer | 否 | 默认 50，最大 50 |
+| `fields` | array | 否 | 只返回这些字段的 `api_code`，语义同 [`list_entries`](#list_entries) 的 `fields` |
 
 **输出**
 
@@ -255,6 +257,8 @@
 ```
 
 > ⚠️ **默认只返回核心信息**（`name` / `token` / `form_url` / `description` / `layout` / `fields`）。`theme` / `setting` / `field_rules` 三块体积大，默认**不返回**，需分别传 `include_theme` / `include_setting` / `include_field_rules=true` 才带上。只为拿字段结构（`api_code`）时保持默认即可。顶层 `layout` 恒返回：`classic`（经典式）/ `card`（分页式，一页一题）。
+>
+> 每个字段都带 `operators`（该字段可用的过滤 operator 列表，不可过滤的字段返回空数组）；可分析的字段还带 `analytics`：`{ agg_funcs, summary_kind, groupable, buckets, default_agg }`——`agg_funcs` 是 [`aggregate_entries`](#aggregate_entries) 能对它用的函数，`groupable` 说明它能不能当分组维度。**要过滤 / 统计前读这两块，不要猜**（`created_at` / `creator_id` 也能过滤，但它们不是表单字段，不出现在 `fields` 里）。
 >
 > 字段特有属性（如 `goods_items` / `reservation_items` / `associated_form_token` / `predefined_value` / `placeholder` / `range_min/max` / `precision` / `media_type` / `max_size` 等）按字段类型出现在对应 field 节点上。选项字段的 `choices[]` 中，「其他」选项（扩展输入）会带 `"is_other": true`，普通选项不带该键；预约字段 `daily_time_range_quotas` 的时刻以零填充字符串返回（`"09"` 而非 `9`）。
 >
@@ -629,7 +633,7 @@
 | `by_entries_close_rule` | object | `{ limit: int }` |
 | `show_close_count_down` | bool | 显示截止倒计时；只在有时间 close rule 时生效，否则静默被重置成 false |
 | `show_form_before_open` | bool | 开放前是否预览表单；同上 |
-| `fill_frequency` | object | `{ fill_type, condition, cycle_period, cycles_per_period, limited_time, limited_field_api_codes }` |
+| `fill_frequency` | object | `{ fill_type, condition, cycle_period, cycles_per_period, limited_time, limited_field_api_codes }`。`limited_time` 是**每个窗口**的次数（`repeatable` / `custom_repeatable` 必填 > 0，其他类型强制 1）；`cycles_per_period` 仅 `custom_repeatable` 有效；`condition=by_fields` 必须同时给 `limited_field_api_codes`。`custom_repeatable` / `by_fields` 是付费能力，账户不支持时限制不生效 |
 | `password_required` | bool | 启用访问密码闸；开启时必须同时给 `access_password` |
 | `access_password` | string | 访问密码 |
 | `allowed_audience` | enum | `public` / `internal` / `private` / `gd_user_only` / `weixin_followers_only` / `weixin_qiye_followers_only` |
@@ -845,8 +849,21 @@
 | `description` | string | 否 | 表单说明 |
 | `exam_setting` | object | 否 | 考试专属设置，见下 |
 | `layout` | enum | 否 | `classic`（默认）/ `card`（分页式，一页一题、自动翻页）。card 不支持 `PageBreak`，含则报错 |
-| `setting` | object | 否 | 仅 `fill_frequency`（考试常用 `fill_type=once` + `condition=by_device`）和 `by_time_range_close_rule`（开放时间窗） |
+| `setting` | object | 否 | 仅 `fill_frequency`（答题次数限制，见下）和 `by_time_range_close_rule`（开放时间窗） |
 | `folder_token` | string | 否 | 文件夹 token |
+
+**`setting.fill_frequency`（答题次数限制）**
+
+| 键 | 说明 |
+| ---- | ---- |
+| `fill_type` | `unlimited` = 不限；`once` = 每人一次；`repeatable` = 每个 `cycle_period` 内可答 `limited_time` 次；`repeatable_by_day` = 每天一次；`custom_repeatable` = 每 `cycles_per_period` 个 `cycle_period` 内可答 `limited_time` 次 |
+| `condition` | 怎么识别答题人；省略 = 按登录身份。`by_device`（按设备）适合匿名考试 |
+| `cycle_period` | 次数重置窗口；只对 `repeatable` / `custom_repeatable` 保留，其他 fill_type 会被清掉 |
+| `cycles_per_period` | 几个 `cycle_period` 算一个窗口，**仅 `custom_repeatable`**（1–100）；其他 fill_type 强制为 1 |
+| `limited_time` | 每个窗口允许答几次；`repeatable` / `custom_repeatable` **必填且 > 0**，其他 fill_type 强制为 1 |
+| `limited_field_api_codes` | `condition=by_fields` 时用哪些字段判重，**by_fields 必填**（不传直接拒），其他 condition 会被清掉 |
+
+> 考试限答一次就 `fill_type=once` + `condition=by_device`；限"每人 3 次"要 `fill_type=repeatable` + `cycle_period` + `limited_time=3`，**别自己造 `times` 这种键**（未声明的键会被拒或忽略）。`custom_repeatable` 与 `condition=by_fields` 是**付费能力**：账户不支持时限制能存下来但不生效。
 
 **fields[] 可用类型**
 
@@ -1166,7 +1183,7 @@
 
 ## list_entries
 
-**用途**：分页列出表单的数据条目，支持复杂字段过滤（filters）。
+**用途**：分页列出表单的数据条目，支持字段过滤（`filters`）、全文关键字搜索（`keyword`）、裁列（`fields`）和排序（`sort`）。
 
 **Scope**：`read_entries`
 
@@ -1177,7 +1194,35 @@
 | `form_token` | string | ✅ | 表单 token 或 form id |
 | `next` | integer | 否 | 翻页游标（上次响应里的 `next`，即 `serial_number`） |
 | `created_at` | string | 否 | ISO 8601 字符串，"创建时间 >= 此刻"的简单单边过滤（等价于 `filters=[{field:"created_at", operator:"gte", value:...}]`） |
+| `limit` | integer | 否 | 每页条数，默认 / 上限 50 |
+| `fields` | array | 否 | 只返回这些字段的 `api_code`，**宽表单必传**，否则几十列会灌满上下文。见下方「fields 裁列」 |
+| `keyword` | string | 否 | 全文关键字，一次搜该表单所有可搜字段。见下方「keyword 全文搜索」 |
+| `sort` | array | 否 | 排序规则 `[{ api_code, order }]`，`order` 取 `asc` / `desc`（默认 `asc`）。见下方「sort 排序」 |
 | `filters` | array / string | 否 | 字段值条件数组，AND 组合；也可传 JSON 字符串 |
+
+### fields 裁列
+
+- 省略 = 返回所有列；只要几列时**一定要传**，既缩小响应也避免模型读错列
+- `serial_number` 和 `token` 无论传不传都会返回（前者是翻页游标，后者用于 `update_entry` 定位）
+- 传该表单没有的 `api_code` 会被拒，并列出它实际有的 `api_code`——不会静默丢弃
+- 保留 `api_code`（每张表单含义相同，不必先 `get_form`）：`serial_number` / `created_at` / `updated_at` / `creator_name` / `creator_id` / `_c_updater_name` / `info_start_filling_time` / `info_filling_duration` / `info_remote_ip` / `info_region` / `info_platform` / `info_os` / `info_browser` / `info_user_agent` / `referred_from` / `color_mark` / `verification_status` / `exam_score` / `payment_method` / `trade_no` / `trade_status` / `sum_price` / `total_price` / `preferential_price` / `x_field_weixin_openid` / `x_field_weixin_nickname`
+- 但**不是每张表单都有全部保留字段**（支付类只在开了在线支付的表单上，`exam_score` 只在考试表单上）；以报错信息为准
+
+### keyword 全文搜索
+
+- 一次搜**该表单所有可搜字段**，不知道值在哪个字段时用它（"这张表单里有没有提到某某公司"）。覆盖范围与数据页搜索一致：选项、数字、日期、地址、矩阵、表格列都在内，按子串匹配
+- **别为了搜一个值先 `get_form` 再逐字段发 `like`**——一次 `keyword` 就够
+- 已经知道字段就用 `filters`（精确、带类型）。两者同传 = 关键字 **AND** 所有 filters
+- 关键字最长 200 字符；**超过 99999 条数据的表单**需要 ClickHouse 支持，不可用时该搜索直接报错（不会静默返回空）
+- 要搜多张表单用 [`search_entries_in_forms`](#search_entries_in_forms)，别一张一张搜
+- `aggregate_entries` / `get_form_data_summary` **没有** `keyword` 参数
+
+### sort 排序
+
+- `[{ "api_code": "created_at", "order": "desc" }]`——按给定顺序依次排；`serial_number` 恒作为最后的兜底排序键，保证翻页稳定（`created_at` 只精确到秒）
+- 省略 = 默认排序：按 `serial_number` 升序；用了 `created_at` 单边过滤或 `created_at` filters 时按 `created_at` 升序
+- 该表单没有的字段、不可排序的类型、`asc` / `desc` 之外的 `order` 都会被**拒**，不会静默回落到默认排序（那会让最旧的数据看起来像最新的）
+- ⚠️ **传了 `sort` 时 `next` 是行偏移量**，不传时是 `serial_number` 游标——两种都只需把上一页的 `next` 原样回传
 
 ### filters 完整说明
 
@@ -1187,7 +1232,8 @@
 | ---- | -------- | ---------- | ---- |
 | 等值 | `eq` / `ne` | 标量 | `{"field":"field_1","operator":"eq","value":"张三"}` |
 | 比较 | `gt` / `gte` / `lt` / `lte` | 标量 | `{"field":"field_3","operator":"gte","value":6}` |
-| 区间 | `between` / `not_between` | `[min, max]` 闭区间 | `{"field":"field_3","operator":"between","value":[80,100]}` |
+| 区间 | `between` / `not_between` | `[min, max]` 闭区间；矩阵 / 表格字段要指明列：`{"<dimension api_code>": [min, max]}` | `{"field":"field_3","operator":"between","value":[80,100]}` |
+| 相对时间 | `within_last` | `{"unit": "day" / "week" / "month", "n": 正整数}` | `{"field":"created_at","operator":"within_last","value":{"unit":"day","n":30}}` |
 | 集合 | `any_in` / `none_in` | 数组 | `{"field":"field_2","operator":"any_in","value":["city_bj","city_sh"]}` |
 | 文本子串 | `like` / `not_like` | 子串字符串（不区分大小写，**不接受 SQL 通配符**） | `{"field":"field_2","operator":"like","value":"张"}` |
 | 是否为空 | `null` / `not_null` | 省略 | `{"field":"field_4","operator":"not_null"}` |
@@ -1196,10 +1242,12 @@
 
 1. **选项字段的 value 传 `choices[].api_code`**（如 `city_sh`），不是 label（`"上海"`）
 2. `created_at` 是合法字段，可与 `gte` / `between` 等数值 operator 组合
-3. **filters 中含 `created_at` 时，结果按 `created_at` 升序**；否则按 `serial_number` 升序
-4. **不支持任意字段排序**——倒序 / 取前 N 在本地处理
+3. 默认排序：**filters 中含 `created_at` 时按 `created_at` 升序**，否则按 `serial_number` 升序；要别的顺序传 `sort`（见上方「sort 排序」），不必再在对话侧倒序
+4. **字段名写错会被拒**并列出该表单实际可用字段——不会静默返回 0 条
 5. operator 跟字段类型不匹配会被服务端拒，并列出该字段允许的 operator——直接照着改
-6. `creator_id` 是合法过滤字段（按提交者查数据，如申诉 / 反馈记录）：**只支持 `eq`**，value 是单个用户 id 字符串（合法 ObjectId，即 entry 返回的 `creator_id`）；传非法值会被拒。例：`{"field":"creator_id","operator":"eq","value":"5f3a1c2b4d5e6f7a8b9c0d1e"}`
+6. `within_last` 是"截至此刻往回数"的相对窗口（仅日期类字段，含 `created_at` / `updated_at`），按 `Asia/Shanghai` 计算：`{unit:"day", n:30}` 是最近 30×24 小时，不是 30 个自然日
+7. 负向 operator（`not_between` / `not_like` 等）**不会自动排除空值**；要"有值且不在区间内"，再加一条 `not_null`
+8. `creator_id` 是合法过滤字段（按提交者查数据，如申诉 / 反馈记录）：**只支持 `eq`**，value 是单个用户 id 字符串（合法 ObjectId，即 entry 返回的 `creator_id`）；传非法值会被拒。例：`{"field":"creator_id","operator":"eq","value":"5f3a1c2b4d5e6f7a8b9c0d1e"}`
 
 operator × 字段类型兼容矩阵：
 
@@ -1262,6 +1310,52 @@ operator × 字段类型兼容矩阵：
 
 ---
 
+## search_entries_in_forms
+
+**用途**：一次在**多张表单**里跑同一个关键字全文搜索，回答"这几张表单里哪张有这个关键字、在哪几条"。只返回命中数量与 `serial_number`，**不返回字段值**。
+
+**Scope**：`read_entries`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `form_tokens` | array | ✅ | 要搜的表单 token 数组，**一次最多 10 张**（重复 token 只搜一次）；先用 `list_forms` 拿 token |
+| `keyword` | string | ✅ | 关键字，最长 200 字符；空字符串被拒（`keyword must not be blank`） |
+
+**输出**
+
+```json
+{
+  "total": 7,
+  "forms": [
+    { "form_token": "abCdEf", "name": "客户登记表", "matched": 5, "serial_numbers": [12, 33, 41, 58, 90] },
+    { "form_token": "gHiJkL", "name": "售后工单", "matched": 2, "serial_numbers": [7, 19] },
+    { "form_token": "mNoPqR", "unavailable": "Not searched: the call ran out of time before reaching this form. Search it on its own, or split the list into smaller calls." }
+  ]
+}
+```
+
+**怎么读这个响应**：
+
+1. `total` 是所有表单命中的**条目总数**（各 `matched` 之和），不是表单数、也不是 `serial_numbers` 的长度
+2. `serial_numbers` 每张表单**最多列 50 个**（升序）；`matched` 大于列出的个数时，剩下的用 `list_entries` + 同一个 `keyword` 翻页取
+3. **没命中的表单直接不出现在 `forms` 里**——你传了但响应里找不到的 token，就是"搜过了，没命中"
+4. 带 `unavailable` 的表单是**没搜成**（无权限 / 数据量超限 / 搜索服务没响应），它没有 `matched`。**绝不能当成"没命中"汇报**，需要单独重试
+5. 响应无法告诉你命中的是哪个字段（引擎把所有可搜字段 OR 成一条查询）；要知道就去读命中的条目
+6. 不接受 `filters`——同一个 `api_code` 在不同表单指向不同字段；定位到表单后再用 `list_entries` / `count_entries` 按字段过滤
+
+**接着怎么取数**：单条用 `get_entry(form_token, serial_number)`；某张表单的全部命中用 `list_entries(form_token, keyword)` 翻页。一次搜索 + 按需读几张表 ≪ 每张表单搜一遍。
+
+**常见错误**
+
+- `keyword must not be blank — pass the text to search for.`
+- `form_tokens must be a non-empty array of form tokens, like ["aBcDeF", "gHiJkL"].`
+- 超过 10 张：schema 直接拒（`maxItems`），把列表拆成多次调用
+- `Insufficient scope: read_entries required`
+
+---
+
 ## list_my_submitted_entries
 
 **用途**：列出当前用户在指定表单里**自己提交**的数据条目，按提交时间倒序。即使该表单不属于你、你只是填写者也能用（结果只含你自己的条目）。
@@ -1297,6 +1391,7 @@ operator × 字段类型兼容矩阵：
 | ---- | ---- | ---- | ---- |
 | `form_token` | string | ✅ | 表单 token 或 form id |
 | `serial_number` | integer | ✅ | 条目流水号（表单内自增） |
+| `fields` | array | 否 | 只返回这些字段的 `api_code`，语义同 [`list_entries`](#list_entries) 的 `fields` |
 
 **输出**
 
@@ -1576,6 +1671,183 @@ operator × 字段类型兼容矩阵：
 
 ---
 
+# 统计分析
+
+这三个工具把统计**留在服务端**：响应大小只跟你要几个指标有关，跟表单有多少条数据无关。要"多少 / 多少钱 / 最早最晚 / 分布"时用它们，**不要**再靠 `list_entries` 翻页拉全量到对话侧自己算。
+
+- 只要条数 → [`count_entries`](#count_entries)
+- 要某几个具体数字（可分组、可按天/周/月）→ [`aggregate_entries`](#aggregate_entries)
+- 要整张表单的全貌（每个字段的分布 / 填答率）→ [`get_form_data_summary`](#get_form_data_summary)
+
+三个工具的 `filters` 与 `list_entries` 完全同一套。`get_form` 会告诉你每个字段支持什么：`operators`（可用过滤 operator）、`analytics.agg_funcs`（可用聚合函数）、`analytics.groupable`（能否做分组维度）——**照着读，不要猜**。时间相关计算统一按 `Asia/Shanghai`（响应里的 `tz` 字段）。
+
+## count_entries
+
+**用途**：只数满足条件的条目数，不返回任何条目。要分析或翻页前先用它探一下范围有多大。
+
+**Scope**：`read_entries`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `form_token` | string | ✅ | 表单 token 或 form id |
+| `keyword` | string | 否 | 全文关键字，语义同 `list_entries` 的 `keyword` |
+| `filters` | array | 否 | 字段值条件数组，AND 组合，形式同 `list_entries` |
+
+**输出**
+
+```json
+{ "total": 1284 }
+```
+
+**调用示例**
+
+```json
+{
+  "form_token": "abCdEf",
+  "filters": [{ "field": "created_at", "operator": "within_last", "value": { "unit": "day", "n": 7 } }]
+}
+```
+
+**常见错误**
+
+- `Insufficient scope: read_entries required`
+- 未知字段 / operator 不匹配：报错并列出该表单可用字段或该字段可用 operator
+
+---
+
+## aggregate_entries
+
+**用途**：在服务端算整列统计值，可选按 1~2 个字段分组。响应是 `columns` + `rows`（同序），大小与数据量无关。
+
+**Scope**：`read_entries`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `form_token` | string | ✅ | 表单 token 或 form id |
+| `metrics` | array | ✅ | 1~20 个指标，每项 `{ func, field }`，如 `{"func":"sum","field":"field_5"}`；`field` 每项必填 |
+| `dimensions` | array | 否 | 1~2 个分组维度，每项 `{ field, bucket? }`；只有 `get_form` 标了 `analytics.groupable` 的字段能分组（单选类、日期类） |
+| `limit` | integer | 否 | 返回多少个分组（按第一个指标降序），默认 20，上限 200；不分组时无意义 |
+| `filters` | array | 否 | 同 `list_entries`，AND 组合 |
+
+**`func` 可选值**：`count` / `count_non_empty` / `count_empty` / `count_unique` / `sum` / `avg` / `min` / `max` / `stddev` / `median` / `p25` / `p75` / `p90`。**按字段类型受限**——从 `get_form` 的 `analytics.agg_funcs` 读该字段支持哪些，函数与字段不匹配会报错并列出允许值（不会静默返回 0）。数字字段除了 `avg` 还有 `stddev` / `median` / `p25` / `p75` / `p90`：只看平均值分不清"集中"和"两极分化"。
+
+**`bucket`（日期维度必填、其他维度传了会被拒）**：`day` / `week` / `month`，按 `Asia/Shanghai` 计算、周一为一周起点。日期维度不传 `bucket` 会按每个存储值各成一组——趋势图要的是分桶。
+
+**输出（不分组）**
+
+```json
+{
+  "columns": ["sum(field_5)", "avg(field_5)", "max(created_at)"],
+  "rows": [[128600, 342.5, "2026-08-20T18:03:00+08:00"]],
+  "total": 375,
+  "tz": "Asia/Shanghai"
+}
+```
+
+**输出（按选项字段 + 日期分桶分组）**
+
+```json
+{
+  "columns": ["field_city", "created_at:day", "count(field_1)"],
+  "rows": [
+    [{ "api_code": "city_sh", "label": "上海" }, "2026-08-20", 42],
+    [{ "api_code": "city_bj", "label": "北京" }, "2026-08-20", 31],
+    [null, "2026-08-20", 5]
+  ],
+  "row_count": 57,
+  "truncated": true,
+  "total": 375,
+  "tz": "Asia/Shanghai"
+}
+```
+
+- 选项类维度的键返回 `{ api_code, label }`（api_code 单独看没有意义），其它维度返回原值
+- **维度为空的条目自成一组，键是 `null`**（常常是最大的一组），不是漏了
+- `row_count` 是分组总数，`truncated=true` 说明你看到的只是按 `limit` 截断的一段
+- `total` 是过滤后的条目数
+
+**调用示例**
+
+```json
+{
+  "form_token": "abCdEf",
+  "metrics": [{ "func": "count", "field": "field_1" }, { "func": "avg", "field": "field_7" }],
+  "dimensions": [{ "field": "field_city" }],
+  "filters": [{ "field": "created_at", "operator": "within_last", "value": { "unit": "month", "n": 3 } }],
+  "limit": 20
+}
+```
+
+**常见错误**
+
+- `metrics is required — pass at least one { func, field }.`
+- `At most 20 metrics per call, got 25. Split the rest into another call.` / `At most 2 dimensions per call, got 3.`
+- `Unknown field 'field_99'. Available fields: field_1, field_2, ...`
+- `Function 'sum' is not supported for field 'field_1' (NameField). Supported functions: count, count_non_empty, count_empty, count_unique.`
+- 多值字段（多选 / 级联 / 矩阵 / 地址 / 表格）当分组维度：被拒（一条会落进多个组），它们的分布用 `get_form_data_summary`
+- `Filtering by creator_id is not supported here: ...`——聚合类工具不支持按 `creator_id` 过滤（它在查询引擎之外生效）；按提交者取数用 `list_entries`
+- 不接受 `keyword`：`aggregate_entries` / `get_form_data_summary` 永远算**整个过滤范围**。别把带 `keyword` 数出来的 `total` 和不带 `keyword` 的统计摆在一起讲，那是两批数据
+
+---
+
+## get_form_data_summary
+
+**用途**：一次给出整张表单的数据画像——表单级概览 + 每个可分析字段的分布或数值统计。不管表单有 10 条还是 100 万条，响应都是几 KB。
+
+**Scope**：`read_entries`
+
+**输入**
+
+| 参数 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `form_token` | string | ✅ | 表单 token 或 form id |
+| `fields` | array | 否 | 要画像的字段 `api_code`；默认取该表单所有可分析字段 + `created_at`，最多 60 个（超出看 `truncated` / `omitted_fields`） |
+| `include_overview` | boolean | 否 | 是否带表单级概览（同一 filters 下的总数与今日数），默认 `true` |
+| `filters` | array | 否 | 同 `list_entries`，AND 组合 |
+
+**输出**
+
+```json
+{
+  "overview": { "total_entries": 375, "today_entries": 12 },
+  "fields": [
+    { "api_code": "field_city", "label": "参会城市", "kind": "choice", "answered": 370, "null_count": 5,
+      "buckets": [{ "api_code": "city_sh", "label": "上海", "count": 210, "ratio": 0.5676 }] },
+    { "api_code": "field_7", "label": "预算", "kind": "number", "answered": 300, "null_count": 75,
+      "stats": { "min": 100, "max": 99000, "sum": 1286000, "avg": 4286.67 } },
+    { "api_code": "created_at", "label": "创建时间", "kind": "date", "answered": 375, "null_count": 0,
+      "earliest": "2026-05-01T09:12:00+08:00", "latest": "2026-08-24T17:40:00+08:00" }
+  ],
+  "truncated": false,
+  "tz": "Asia/Shanghai"
+}
+```
+
+字段形状按 `kind` 归一化，学一种结构就够：
+
+| `kind` | 载荷 |
+| ------ | ---- |
+| `choice` | `buckets`：`[{ api_code, label, count, ratio }]`（地址、商品、NPS 这类没有自己选项的字段 `api_code` 为 `null`，用 `label`） |
+| `matrix` | `series`（每条陈述一项）下再嵌一层 `buckets` |
+| `number` | `stats`：`{ min, max, sum, avg }` |
+| `date` | `earliest` / `latest` |
+| `text` | 只有填答率 + `count_unique`（去重值个数） |
+| `geo` | 只有填答率（坐标是逐条数据，故意不返回） |
+
+每个字段都带 `answered` 与 `null_count`，空答案不会被悄悄吞掉。提交元数据（`serial_number` / `creator_name` / `info_*`）不做画像——它描述提交行为而不是答案；`created_at` 是例外，会画像。
+
+**常见错误**
+
+- `Field 'field_99' cannot be summarised. Summarisable fields: ...`
+- `Field 'field_3' is not readable with your permissions on this form.`
+- `Filtering by creator_id is not supported here: ...`（同 `aggregate_entries`）
+
+---
+
 # Account
 
 ## get_current_user
@@ -1721,3 +1993,4 @@ OAuth metadata 端点：
 - `Entry attributes cannot be empty` — entry 是 `{}` 或全是未知 key
 - `Form has reached entries limit` — 表单达条目上限
 - `Failed to <action>: <validation messages>` — 底层 service save 失败，含详细 errors
+- **套餐 / 额度类失败**（如 `edit_theme` 生成头图时 AI 点数不足）现在也以**工具错误**返回（`isError: true`），不再是 500；把错误原文告诉用户并给替代方案（换套餐 / 改用 `prepare_form_image_upload` 上传本地图），不要重试
