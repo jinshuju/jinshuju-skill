@@ -867,11 +867,11 @@
 
 **fields[] 可用类型**
 
-- **题目**（必须带 `answers`，自动判分）：`SingleSelect` 单选题 / `MultiSelect` 多选题 / `TrueOrFalse` 判断题 / `DropDownSelect` 下拉题 / `FillInBlank` 填空题 / `ShortAnswer` 简答题 / `FillInNumber` 数字填空
-- **考生信息**（不计分）：`NameField` / `MobileField` / `EmailField` / `IdCardField` / `TextField` / `DropDown`
+- **题目**（必须带 `answers`，自动判分）：`SingleSelect` 单选题 / `MultiSelect` 多选题 / `ImageSingleSelect` 图片单选题 / `ImageMultiSelect` 图片多选题 / `TrueOrFalse` 判断题 / `DropDownSelect` 下拉题 / `FillInBlank` 填空题 / `ShortAnswer` 简答题 / `FillInNumber` 数字填空
+- **考生信息**（不计分）：`NameField` / `MobileField` / `EmailField` / `IdCardField` / `AddressField` 收件地址 / `Department` 部门 / `Grade` 年级 / `TextField` / `DropDown`
 - **排版**：`SectionBreak` / `PageBreak`
 
-其他类型不接受。每个字段都要带表单内唯一的 `cid`（同 create_form），题干放 `label`，选项放 `choices: [{ value }]`。
+其他类型不接受。每个字段都要带表单内唯一的 `cid`（同 create_form），题干放 `label`，选项放 `choices: [{ value }]`；图片题每个选项还要带 `image_url` / `image_upload_token` / `image_base64`，答案用选项的 `value`（文字标签）指向正确项；`Department` / `Grade` 是单选，也要传 `choices`。
 
 **answers / answer_setting_mode**
 
@@ -961,7 +961,7 @@
 
 **fields[] 可用类型**
 
-- **计分题型**（必须带 `answers`，按所选项分值累计得分）：`SingleSelect` / `MultiSelect` / `DropDownSelect` / `Rating`（每个分值配 score）/ `Nps`
+- **计分题型**（必须带 `answers`，按所选项分值累计得分）：`SingleSelect` / `MultiSelect` / `ImageSingleSelect` / `ImageMultiSelect`（图片题选项带 `image_url` / `image_upload_token` / `image_base64`）/ `DropDownSelect` / `Rating`（每个分值配 score）/ `Nps`
 - **普通字段**（不计分）：`NameField` / `MobileField` / `EmailField` / `IdCardField` / `TextField` / `TextArea` / `RadioButton` / `CheckBox` / `DropDown` / `RatingField` / `NpsField` / `LikertField` / `MatrixScaleField`
 - **排版**：`SectionBreak` / `PageBreak`
 
