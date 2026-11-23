@@ -90,6 +90,10 @@ npx skills add jinshuju/jinshuju-skill -g -a claude-code
 │   │   └── examples.md       # 典型场景的 Prompt 与调用示例
 │   └── scripts/
 │       └── setup.py          # MCP 连接器安装辅助脚本
+├── connector/jinshuju/       # Connector 包：MCP 连接配置 + 精简版 Skill
+├── expert/
+│   ├── jinshuju-form-expert/ # 表单专家（Agent + 内置 Skill + MCP 依赖）
+│   └── jinshuju-table-expert/# 表格专家（Agent + 内置 Skill + MCP 依赖）
 └── icons/
     └── icon.svg              # 品牌图标
 ```
