@@ -1,103 +1,72 @@
-# 金数据 Skill
+# 金数据 TRAE Plugin（Jinshuju）
 
-[![skills.sh](https://skills.sh/b/jinshuju/jinshuju-skill)](https://skills.sh/jinshuju/jinshuju-skill)
+用自然语言在[金数据](https://jinshuju.net)上搭建表单与数据表格、批量管理数据，替代登录后台手动操作。
 
-金数据官方 Skill，基于金数据 MCP Server，让 AI 助手通过自然语言完成表单搭建、数据管理、账户查询与工作流自动化。
+金数据（jinshuju.net）是中国领先的在线表单与数据收集平台，提供表单搭建、数据收集、支付收款、数据表格（AI 表格）等能力。
 
-## 适合谁使用
+## 能力列表
 
-- 希望通过 AI 助手查询、整理或维护金数据表单数据的团队
-- 希望让 AI Agent 创建表单、修改字段或处理日常数据工作的开发者
-- 正在将金数据接入 MCP、Agent 或自动化工作流的用户
+| 能力 | 说明 |
+|---|---|
+| 表单搭建 | 创建 / 复制 / 编辑在线表单与主题，含自动判分的考试表单、选项计分的测评表单 |
+| 表单数据管理 | 查询、新增（单条或批量）、更新、删除、批量修改表单数据（entries） |
+| 数据表格 | 创建 / 编辑数据表与列（含公式列），增删改查与批量维护行数据 |
+| 文件上传 | 用上传凭证上传本地图片或附件 |
+| 账户信息 | 查询账户套餐额度与团队成员 |
 
-## 快速开始
+## 包内结构与关系
 
-### 1. 配置 MCP 连接器
-
-金数据 MCP Server 地址：
-
-```text
-https://jinshuju.net/mcp
+```
+jinshuju/
+├── .trae-plugin/plugin.json      # 插件清单
+├── skills/
+│   ├── jinshuju-form/            # Skill：表单搭建与表单数据管理
+│   │   ├── SKILL.md
+│   │   └── references/           # 工具说明、字段规则、示例
+│   └── jinshuju-table/           # Skill：数据表格与行数据管理
+│       ├── SKILL.md
+│       └── references/
+├── .mcp.json                     # Remote MCP：https://jinshuju.net/mcp
+├── connector.json                # Remote MCP Connector（OAuth 授权）
+├── icon.svg                      # 插件图标（金数据官方图标）
+└── LICENSE                       # MIT
 ```
 
-推荐使用 OAuth 方式授权；如果你的 AI 客户端暂不支持 OAuth，也可以在请求头里带访问令牌（`Authorization: Bearer <token>`）。旧的 API Key / Secret（Basic）方式已不再支持。
+- **MCP** 提供全部工具调用能力：`.mcp.json` 声明的 `jinshuju` 是一个 HTTP Remote MCP（Streamable HTTP），服务地址 `https://jinshuju.net/mcp`，无本地命令与本地依赖。
+- **Connector** 负责认证：`connector.json` 声明 `remote_mcp` 类型 Connector，指向 `.mcp.json` 中的 `jinshuju` server，`auth_policy` 为 `ON_INVOKE`。
+- **Skill** 提供任务路由与使用知识：`jinshuju-form` 处理在线表单场景，`jinshuju-table` 处理数据表格场景；两者共用同一个 MCP 的 entries 工具，SKILL.md 中已写明各自的触发与排除条件。
 
-详细配置方式请查看：[金数据 MCP Server 文档](https://open.jinshuju.net/mcp/)。
+## 认证方式
 
-### 2. 安装 Skill
+金数据 MCP 为标准 Remote MCP OAuth：首次调用工具时由 TRAE 触发 OAuth 授权，用户在金数据完成登录授权后，运行时在 MCP 请求中携带授权结果。插件包内不含任何真实凭据，也无需用户手动填写 API Key。
 
-推荐使用 [skills CLI](https://www.skills.sh/) 一键安装：
+平台侧 Connector Provider Template 所需的 Remote MCP 服务地址：
 
-```bash
-# 装到当前项目（默认）
-npx skills add jinshuju/jinshuju-skill
-
-# 装到用户全局，并指定 AI 客户端
-npx skills add jinshuju/jinshuju-skill -g -a claude-code
+```json
+{
+  "mcp": {
+    "server_url": "https://jinshuju.net/mcp"
+  }
+}
 ```
 
-支持 Claude Code、Codex、Cursor、OpenCode 等 50+ 客户端。
+## 依赖与运行
 
-也可以手动安装：将 `skills/jinshuju/` 目录放入你的 AI 客户端 Skill 目录，重启客户端使其加载。
+- 无本地命令、无本地运行时依赖（纯 HTTP Remote MCP），支持系统不限（Universal）。
+- 外部服务：金数据（https://jinshuju.net），由金数据官方运营。
+- 项目来源：https://github.com/jinshuju/jinshuju-skill
 
-### 3. 验证
+## 验证方式
 
-在对话里发送：
+1. 安装插件后，对 AI 说："帮我做一个训练营报名表，299 元一位，限 60 人报名"。
+2. 首次调用会弹出金数据 OAuth 授权，完成登录授权。
+3. AI 应通过 `create_form` 等工具建出表单并返回表单链接。
 
-> 列一下我金数据里的表单
+## 已知限制
 
-如果 AI 助手能返回你的表单列表，说明连接成功。
+- 需要金数据账号；部分能力（如支付表单、批量数据量上限）受账户套餐限制，可通过 `get_current_billing_account` 工具查询额度。
+- 工具仅操作用户已授权账户内的表单与数据。
 
-## 支持的能力
+## 许可证
 
-- **表单管理**：创建 / 复制 / 移动 / 编辑 / 删除表单，调整主题；支持 39 种字段类型（含矩阵、商品、公式、关联表单、预约等），头图可由 AI 根据表单内容自动生成；考试与测评表单
-- **多维表格**：建表、增删改列（含公式、编号、关联、查找引用、汇总列）
-- **数据管理**：查询、新增（单条或批量导入）、批量修改与删除数据，写数据评论，支持字段值条件下推过滤（等值 / 区间 / 模糊 / 集合等）；Excel / CSV 文件导入
-- **统计与搜索**：服务端计数、分组、趋势与整表画像，跨表单搜关键字
-- **视图与对外查询页**：表格 / 看板视图，让访客自助查数据
-- **账户与团队**：查看当前用户、企业套餐与用量、团队成员、收款商户
-
-## 使用示例
-
-```text
-用户：帮我建一个“2026 春季产品发布会”报名表，要姓名、手机号、公司、职位
-助手：（调用 create_form 创建表单并返回链接与 form_token）
-
-用户：给这个表单换个蓝紫色科技感的头图
-助手：（调用 edit_theme.generate_header_image，AI 按表单主题生成头图）
-
-用户：统计一下本月报名里手机号以 138 开头的有几条
-助手：（list_entries 用 filters 把 like / created_at 条件下推到数据库，分页拉回）
-
-用户：把这些人的“跟进状态”全部改成“已联系”
-助手：（先展示命中记录并二次确认，确认后用 patch_entries 批量更新）
-
-用户：我这个月还剩多少短信额度？什么时候到期？
-助手：（调用 get_current_billing_account，从 plan / usage 字段拿到套餐 / 短信余额 / 到期日）
-```
-
-更多场景参见 [`references/examples.md`](skills/jinshuju/references/examples.md)，工具分类参见 [`references/tools.md`](skills/jinshuju/references/tools.md)。
-
-## 目录结构
-
-```text
-.
-├── skills/jinshuju/
-│   ├── SKILL.md              # 能力定义与使用规范
-│   ├── references/
-│   │   ├── tools.md          # MCP 工具地图（参数以 MCP 自带描述与 get_schema 为准）
-│   │   ├── guide.md          # 安装配置、效果展示、常见误区
-│   │   └── examples.md       # 典型场景的 Prompt 与调用示例
-│   └── scripts/
-│       └── setup.py          # MCP 连接器安装辅助脚本
-└── icons/
-    └── icon.svg              # 品牌图标
-```
-
-## 维护状态
-
-本仓库由金数据团队维护。问题与建议请提交至本仓库 Issues。
-
-## License
-
-MIT
+MIT，见 [LICENSE](./LICENSE)。
