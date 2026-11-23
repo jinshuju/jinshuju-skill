@@ -25,7 +25,7 @@ jinshuju-form-expert/
 ## 打包提交
 
 ```bash
-cd workbuddy/expert
+cd expert
 zip -r jinshuju-form-expert.zip jinshuju-form-expert/
 ```
 

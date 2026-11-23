@@ -25,7 +25,7 @@ jinshuju-table-expert/
 ## 打包提交
 
 ```bash
-cd workbuddy/expert
+cd expert
 zip -r jinshuju-table-expert.zip jinshuju-table-expert/
 ```
 
