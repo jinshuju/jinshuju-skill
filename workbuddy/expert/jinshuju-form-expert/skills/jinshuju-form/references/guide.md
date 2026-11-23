@@ -26,61 +26,18 @@
 
 金数据 MCP 支持两种认证方式，任选其一：
 
-- **方式 A · API Key/Secret（HTTP Basic Auth）**：配置一次长期有效，适合自动化场景
-- **方式 B · OAuth 2.0**：在客户端里点击授权即可，无需手动管理密钥
+- **方式 A · OAuth 2.0（推荐）**：在客户端里点击授权即可，无需手动管理密钥
+- **方式 B · 访问令牌（Bearer）**：适合不支持 OAuth 的客户端、脚本与自动化场景
 
 MCP 地址（两种方式相同）：**`https://jinshuju.net/mcp`**
 
----
-
-### 方式 A · API Key/Secret（推荐）
-
-#### Step A1 · 获取 API Key / Secret
-
-1. 登录金数据后台
-2. 进入「个人设置 → API / 开发者」
-3. 创建并复制 **API Key** 和 **API Secret**（请妥善保管，泄露后建议重置）
-
-#### Step A2 · 生成 Basic 凭证
-
-在终端执行，把 Key 和 Secret 转成 Base64：
-
-```bash
-echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
-```
-
-输出结果（形如 `dXNlcjpwYXNz...`）即下一步要用的 `BASE64_ENCODED_CREDENTIALS`。
-
-#### Step A3 · 在 AI 客户端中配置连接器
-
-连接器信息：
-
-| 字段 | 值 |
-| --- | --- |
-| **名称** | `jinshuju` 或 `金数据` |
-| **URL** | `https://jinshuju.net/mcp` |
-| **请求头** | `Authorization: Basic BASE64_ENCODED_CREDENTIALS` |
-
-在客户端的 MCP 配置中粘贴以下片段：
-
-```json
-{
-  "mcpServers": {
-    "jinshuju": {
-      "url": "https://jinshuju.net/mcp",
-      "headers": {
-        "Authorization": "Basic BASE64_ENCODED_CREDENTIALS"
-      }
-    }
-  }
-}
-```
+> 旧的 API Key / Secret（HTTP Basic）方式已不再支持，请改用 OAuth 或访问令牌。
 
 ---
 
-### 方式 B · OAuth 2.0
+### 方式 A · OAuth 2.0（推荐）
 
-#### Step B1 · 添加金数据连接器
+#### Step A1 · 添加金数据连接器
 
 1. 打开客户端的 **连接器 / Connectors** 管理入口
 2. 选择 **添加连接器（Add custom connector）**
@@ -89,14 +46,62 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
    - **URL**：`https://jinshuju.net/mcp`
 4. 点击 **Add**
 
-#### Step B2 · 完成授权
+Claude Code 用命令添加：`claude mcp add jinshuju -s user --transport http https://jinshuju.net/mcp`，然后在 Claude Code 里运行 `/mcp` 登录。
+
+#### Step A2 · 完成授权
 
 1. 客户端会弹出金数据登录页
 2. 用账号登录（手机号 / 邮箱 / 扫码均可）
 3. 在授权页点 **允许**
 4. 回到客户端看到连接器状态 ✅ 即完成
 
-> OAuth 凭证由客户端托管，token 过期会自动刷新；若长期未使用或账号改密，按 Step B2 重新授权即可。
+> OAuth 凭证由客户端托管，token 过期会自动刷新；若长期未使用或账号改密，按 Step A2 重新授权即可。
+
+---
+
+### 方式 B · 访问令牌
+
+#### Step B1 · 创建访问令牌
+
+- **个人访问令牌**：「个人资料 → API」（https://next.jinshuju.net/profile/api），只能看到你创建或被共享的表单
+- **账户访问令牌**：「系统设置 → 账户 API」（https://next.jinshuju.net/system/api_licence），能看到整个账户的表单
+
+请妥善保管，泄露后到同一页面删除重建。
+
+#### Step B2 · 在 AI 客户端中配置连接器
+
+| 字段 | 值 |
+| --- | --- |
+| **名称** | `jinshuju` 或 `金数据` |
+| **URL** | `https://jinshuju.net/mcp` |
+| **请求头** | `Authorization: Bearer YOUR_ACCESS_TOKEN` |
+
+```json
+{
+  "mcpServers": {
+    "jinshuju": {
+      "url": "https://jinshuju.net/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_ACCESS_TOKEN"
+      }
+    }
+  }
+}
+```
+
+只支持本地（stdio）MCP 的客户端，用 npm 包 `@jinshuju/mcp`：
+
+```json
+{
+  "mcpServers": {
+    "jinshuju": {
+      "command": "npx",
+      "args": ["-y", "@jinshuju/mcp"],
+      "env": { "JINSHUJU_ACCESS_TOKEN": "YOUR_ACCESS_TOKEN" }
+    }
+  }
+}
+```
 
 ---
 
@@ -174,10 +179,10 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 
 1. **"要把数据传给 AI"才能分析** —— 不需要。AI 通过 MCP 拉数据，**数据不离开金数据**。
 2. **"改错了没法恢复"** —— 批量操作前 AI 会让你确认；单条修改有历史记录可查。
-3. **"用户说中文字段名 AI 就能直接写进去"** —— 不行。金数据 API 的 entry payload 键是每个字段的 `api_code`（如 `field_1`、`field_mobile`），不是中文 label。AI 每次都会先 `get_form` 拿映射再写，这是正常流程，不用人工转换——你说中文就行。
-4. **"连接显示 ✅ 但工具不响应"** —— 多半是 API Key / Secret 被重置或凭证过期，重新生成 Basic 凭证并替换配置即可。
+3. **"用户说中文字段名 AI 就能直接写进去"** —— 不行。金数据 API 的数据键是每个字段的 `api_code`（如 `field_1`、`field_mobile`），不是中文字段名。AI 每次都会先 `get_form` 拿映射再写，这是正常流程，不用人工转换——你说中文就行。
+4. **"连接显示 ✅ 但工具不响应"** —— 多半是访问令牌被删除或 OAuth 授权过期：重新授权，或换一个新令牌替换配置。还在用旧的 Basic（API Key / Secret）凭证的，需要换成访问令牌或 OAuth。
 5. **"一次只能做一件事"** —— 一条 prompt 可串多个工具（复制表单 → 改标题 → 换主题 → 统计数据）。
-6. **"数据量大也能一次拉回来"** —— `list_entries` 单次上限 50 条，分页靠游标。但大多数时候不需要全量：用 `filters` 把条件下推到数据库（等值、范围、相对时间、子串、是否为空都行）先把命中集打小；只要几列就用 `fields` 裁列、要排序就交给 `sort`。
+6. **"数据量大也能一次拉回来"** —— `list_entries` 默认每页 50 条、最多 1000 条，分页靠游标。但大多数时候不需要全量：用 `filters` 把条件下推到数据库（等值、范围、相对时间、子串、是否为空都行）先把命中集打小；只要几列就用 `fields` 裁列、要排序就交给 `sort`。
 7. **"要统计就得先把数据全拉出来"** —— 不用了。数条数、分组求和 / 均值 / 中位数 / 分位、按天 / 周 / 月看趋势、整表字段分布画像，都在服务端算完再返回（响应大小与数据量无关，也不会因为漏翻一页而算错）。只有要看具体记录时才拉明细。
 8. **"找一个值得一张张表单翻"** —— 不知道值在哪个字段就用关键字搜整张表单；不知道在哪张表单就一次搜多张（一次最多 10 张），拿到"哪张表单命中几条、是哪几条"之后再去读。
 
@@ -195,7 +200,7 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 | 现象 | 解决办法 |
 | --- | --- |
 | 一直转圈连不上 | 刷新重试；仍失败 → 删除连接器重新添加 |
-| 字段类型建不出来 | 39 种字段类型已支持（含描述字段 / 矩阵 / 商品 / 公式 / 关联表单等）；部分高级字段需付费套餐，错误提示会直接显示需要的套餐 |
+| 字段类型建不出来 | 39 种字段类型已支持（含描述字段 / 矩阵 / 商品 / 公式 / 关联表单 / 预约等）；部分高级字段需付费套餐，错误提示会直接显示原因 |
 | 提示"表单不存在" | 核对 form_token；确认是同一个金数据账号 |
 | 操作被拒绝 | 该表单是协作表单且你无编辑权限，联系所有者 |
 
@@ -205,5 +210,5 @@ echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64
 
 - MCP 所有操作都按当前凭证所属账号的权限执行——看不到你无权访问的数据
 - 重要操作（批量删除、覆盖字段）AI 会要求显式确认
-- **Basic 方式**：凭证以 Base64 形式保存在客户端配置；若泄露，到「个人设置 → API / 开发者」**重置 Secret**，旧凭证立即失效；本地 `mcp.json` 请勿提交到公共仓库
+- **访问令牌方式**：令牌明文保存在客户端配置里；若泄露，到创建它的页面**删除令牌**，旧令牌立即失效；本地 `mcp.json` 请勿提交到公共仓库
 - **OAuth 方式**：凭证由客户端托管，可随时在金数据「设置 → 授权管理」中撤销对应客户端的授权

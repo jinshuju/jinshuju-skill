@@ -26,29 +26,30 @@
 - 已注册**金数据**账号（[jinshuju.net](https://jinshuju.net)）并开通「新版表格」
 - 已安装并登录**支持 MCP 的 AI 客户端**（Claude Desktop、Cursor、WorkBuddy 等）
 
-金数据 MCP 支持两种认证方式，任选其一，MCP 地址相同：**`https://jinshuju.net/mcp`**（表单与表格共用端点）。
+金数据 MCP 支持两种认证方式，任选其一，MCP 地址相同：**`https://jinshuju.net/mcp`**（表单与表格共用端点）。旧的 API Key / Secret（HTTP Basic）方式已不再支持。
 
-### 方式 A · API Key/Secret（推荐）
+### 方式 A · OAuth 2.0（推荐）
 
-1. 登录金数据后台 →「个人设置 → API / 开发者」，创建并复制 **API Key / API Secret**
-2. 生成 Basic 凭证：`echo -n "YOUR_API_KEY:YOUR_API_SECRET" | base64`
-3. 在客户端 MCP 配置里粘贴：
+1. 客户端「添加连接器」→ Name = `金数据表格`，URL = `https://jinshuju.net/mcp`
+2. 弹出金数据登录页，登录并点「允许」，连接器变 ✅ 即完成（token 过期自动刷新）
+
+### 方式 B · 访问令牌
+
+1. 创建访问令牌：个人访问令牌在「个人资料 → API」（https://next.jinshuju.net/profile/api），账户访问令牌在「系统设置 → 账户 API」（https://next.jinshuju.net/system/api_licence）
+2. 在客户端 MCP 配置里粘贴：
 
 ```json
 {
   "mcpServers": {
     "jinshuju-table": {
       "url": "https://jinshuju.net/mcp",
-      "headers": { "Authorization": "Basic BASE64_ENCODED_CREDENTIALS" }
+      "headers": { "Authorization": "Bearer YOUR_ACCESS_TOKEN" }
     }
   }
 }
 ```
 
-### 方式 B · OAuth 2.0
-
-1. 客户端「添加连接器」→ Name = `金数据表格`，URL = `https://jinshuju.net/mcp`
-2. 弹出金数据登录页，登录并点「允许」，连接器变 ✅ 即完成（token 过期自动刷新）
+只支持本地（stdio）MCP 的客户端：`npx -y @jinshuju/mcp`，令牌放在环境变量 `JINSHUJU_ACCESS_TOKEN`。
 
 ### 首次验证
 
@@ -92,17 +93,17 @@
 ### ⚠️ 常见误区
 
 1. **表格 = 表单** —— 不是。数据表格是「列 + 行」的结构化数据表（多维表格 / 在线数据库），对外收集用「表单」产品。
-2. **"用户说中文列名 AI 就能直接写进去"** —— 不行。entry payload 的键是列 `api_code`（如 `field_1`），不是中文列名。AI 每次会先 `get_table` 拿映射再写，你说中文就行。
+2. **"用户说中文列名 AI 就能直接写进去"** —— 不行。行数据的键是列 `api_code`（如 `field_1`），不是中文列名。AI 每次会先 `get_table` 拿映射再写，你说中文就行。
 3. **"改错了没法恢复"** —— 批量 / 删列前 AI 会让你确认；但删有数据的列会永久清除该列数据，务必确认。
-4. **"公式列可以直接填值"** —— 不行。公式列（FormulaField）只读，值由公式自动算。
-5. **"数据量大也能一次拉回来"** —— `list_entries` 单次上限 50 行，分页靠游标；用 `filters` 把条件下推到数据库先收窄命中集，比拉全量快得多。
+4. **"公式列可以直接填值"** —— 不行。公式、自动编号、查找引用、汇总列都只读，值由系统自动算。
+5. **"数据量大也能一次拉回来"** —— `list_entries` 默认每页 50 行、最多 1000 行，分页靠游标；用 `filters` 把条件下推到数据库先收窄命中集，比拉全量快得多。
 
 ### 💡 使用 Tips
 
 - **✨ 先「看一眼」再动手**：批量操作前让 AI 先 `get_table` 确认列，准确率更高
 - **✨ 带时间 + 数量**：加"最近 7 天""前 50 行"更稳
 - **✨ 主动要求脱敏**：「手机号打星」AI 会自动处理
-- **✨ 公式列建表时一次带上**：用 `cid` + `<gd-field data-cid>` 引用同批新增列
+- **✨ 公式列建表时一次带上**：给被引用的列设 `cid`，公式里用 `$(cid)` 引用同批新增的列
 - **✨ 改选项用改名不用删建**：保留 api_code，历史行不失联
 
 ### 🆘 遇到问题
@@ -111,8 +112,8 @@
 | --- | --- |
 | 提示未开通新版表格 | 到金数据后台开通「新版表格」后重试 |
 | 一直转圈连不上 | 刷新重试；仍失败 → 删除连接器重新添加 |
-| 列类型建不出来 | 表格仅支持白名单列类型（见 tools.md）；不在其中的类型会被拒 |
-| 提示"Resource is not a table" | 目标是普通表单不是数据表，用表单产品操作 |
+| 列类型建不出来 | 表格只支持 15 种列类型（见 SKILL.md「支持的列类型」）；不在其中的类型会被拒 |
+| 提示"Table not found" | 目标是普通表单不是数据表，用表单产品操作 |
 | 操作被拒绝 | 该表是协作表且你无编辑权限，联系所有者 |
 
 ---
@@ -121,5 +122,5 @@
 
 - MCP 所有操作都按当前凭证所属账号的权限执行——看不到你无权访问的数据
 - 重要操作（批量删除、删列）AI 会要求显式确认
-- **Basic 方式**：凭证以 Base64 存在客户端配置；若泄露，到「个人设置 → API / 开发者」重置 Secret，旧凭证立即失效；本地 `mcp.json` 勿提交到公共仓库
+- **访问令牌方式**：令牌明文存在客户端配置；若泄露，到创建它的页面删除令牌，旧令牌立即失效；本地 `mcp.json` 勿提交到公共仓库
 - **OAuth 方式**：凭证由客户端托管，可随时在金数据「设置 → 授权管理」撤销

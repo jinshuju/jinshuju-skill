@@ -39,7 +39,7 @@
 
 > 建一张"项目预算表"，列：项目名称、预算金额（数字）、已用金额（数字），再加一列公式列「已用占比」= 已用金额 / 预算金额。
 
-**AI 调用**：`create_table`。公式列引用同一请求里新增的列时，给被引用列加 `cid`，公式用 `<gd-field data-cid="…">` 引用（此时新列还没有 `api_code`）：
+**AI 调用**：`create_table`。公式列引用同一请求里新增的列时，给被引用列加 `cid`，公式里写 `$(cid)`（此时新列还没有 `api_code`；已有列直接写 api_code）：
 
 ```json
 [
@@ -47,11 +47,11 @@
   {"type": "NumberField", "label": "预算金额", "cid": "c_budget"},
   {"type": "NumberField", "label": "已用金额", "cid": "c_used"},
   {"type": "FormulaField", "label": "已用占比",
-   "formula_display": "<gd-field data-cid=\"c_used\"></gd-field> / <gd-field data-cid=\"c_budget\"></gd-field>"}
+   "formula": "$(c_used) / $(c_budget)", "display_as_percentage": true}
 ]
 ```
 
-> ⚠️ 公式列只读，不能写入 entry；它的值随预算 / 已用列自动计算。
+> ⚠️ 公式列只读，不能写入 entry；它的值随预算 / 已用列自动计算。可用的函数见 `get_schema("FormulaFieldColumnInput")` 里 `formula` 的 `x-functions`。
 
 ---
 
@@ -93,7 +93,7 @@
 
 > 把"客户跟进表"的备注列删掉。
 
-**AI 流程**：`get_table` 拿「备注」列 `api_code` → 告知用户"删除该列会永久清除已有行里这一列的数据，不可恢复" → 用户确认后 `edit_table`，`fields.remove: ["<备注 api_code>"]`。
+**AI 流程**：`get_table` 拿「备注」列 `api_code` → `check_field_data(checks=[{"field_api_code": "<备注 api_code>"}])` 查有没有数据 → 有数据时告知用户"删除该列会永久清除已有行里这一列的数据，不可恢复" → 用户确认后 `edit_table`，`fields.remove: ["<备注 api_code>"]`。
 
 ---
 
@@ -118,9 +118,9 @@
 3. 同一次调用里把列和排序交给服务端：`fields=["field_name","field_mobile","field_next"]`、`sort=[{"api_code":"field_next","order":"asc"}]`、`limit=20`
 4. 手机号脱敏，Markdown 表格展示 + 总数
 
-> ⚠️ 选项列 value 传**选项 api_code** 不是 label；列名写错会被拒并列出该表实际列。排序用 `sort`，不必在对话侧倒序——但注意传了 `sort` 后 `next` 是行偏移量。
+> ⚠️ 选项列 value 传选项 api_code 最稳（选项文字也能识别）；列名写错会被拒并列出该表实际列。排序用 `sort`，不必在对话侧倒序；翻页时把 `next` 原样回传。
 >
-> 要"多少行 / 合计多少 / 哪类最多 / 按天趋势"时别拉行数据回来自己算：`count_entries` 数行数，`aggregate_entries` 做分组与分桶统计（公式列也能聚合），`get_form_data_summary` 出整张表每列的分布与填充率。
+> 要"多少行 / 合计多少 / 哪类最多 / 按天趋势"时别拉行数据回来自己算：`count_entries` 数行数，`aggregate_entries` 做分组与分桶统计，`get_form_data_summary` 出整张表每列的分布与填充率。
 
 ### 3.2 补录一行
 
@@ -142,7 +142,7 @@
 }
 ```
 
-> ⚠️ entry 的键是列 `api_code`；选项列 value 是选项 `api_code`；手机号要真实号段，测试号段（13800138000）会被拒。
+> ⚠️ entry 的键是列 `api_code`；选项列 value 传选项 `api_code` 或选项文字；手机号要真实号段，测试号段（13800138000）会被拒。
 
 ### 3.3 批量导入行
 
@@ -150,7 +150,7 @@
 
 > 把这 50 个客户导入"客户跟进表"（贴了一份名单）。
 
-**AI 流程**：`get_table` 拿列 api_code → 把每行整理成 `{api_code: value}` → `create_entries`（一次 ≤200）→ 读 `created_count` + `errors`，向用户汇总成功 / 失败（按 `errors` 下标只补失败行，不整批重发）。
+**AI 流程**：`get_table` 拿列 api_code → 把每行整理成 `{api_code: value}` → `create_entries`（一次 ≤200）→ 读 `errors`，向用户汇总成功 / 失败（按 `errors` 下标只补失败行，不整批重发）。
 
 ### 3.4 批量更新行
 
@@ -169,7 +169,7 @@
    ```
 3. 展示前 10 行 + 总数，向用户确认
 4. 确认后 `patch_entries` 一次提交（每行 `{serial_number, entry: {field_status: "status_pending"}}`，每批 ≤200）
-5. 读 `updated_count` + `failed_rows`，汇总成功 / 失败
+5. 读 `failed_rows`，汇总成功 / 失败
 
 ### 3.5 批量删除行（高风险）
 

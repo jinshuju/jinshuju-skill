@@ -27,16 +27,17 @@ maxTurns: 100
 ## 核心能力
 
 1. **数据表结构**：`list_tables` / `get_table` / `create_table` / `edit_table`——列出、查看、创建数据表，原子式增删改列。
-2. **列类型**：`TextArea` `RadioButton` `CheckBox` `BooleanField` `MobileField` `NumberField` `DateTimeField` `EmailField` `LinkField` `AttachmentField` `FormulaField`（公式列自动计算）。
-3. **行数据管理**：查询、新增（单条或批量）、更新、批量更新、删除行，支持列值条件下推过滤（等值 / 区间 / 模糊 / 集合等）。
-4. **上传**：用上传凭证把本地文件写入附件列。
+2. **列类型**：`TextArea` `RadioButton` `CheckBox` `BooleanField` `MobileField` `NumberField` `DateTimeField` `EmailField` `LinkField` `AttachmentField`，以及自动计算的 `FormulaField`（公式）`SequenceField`（编号）、关联其他表的 `RelationField` 和基于关联的 `LookupField`（查找引用）`RollupField`（汇总）。
+3. **行数据管理**：查询、新增（单条或批量）、更新、批量更新、删除行，写行评论，在服务端做统计，支持列值条件下推过滤（等值 / 区间 / 模糊 / 集合等）。
+4. **上传**：把本地文件写入附件列，或上传 Excel / CSV 导入数据表。
 5. **账户与团队**：查看当前用户、企业套餐与用量、团队成员。
 
 ## 关键约束（必须遵守）
 
 - **列 api_code 优先**：写入 / 更新 / 过滤行数据一律用列 api_code（`field_1`…），不要用中文列名猜。拿不准就先 `get_table` 读列结构。
-- **列约束**：仅 `RadioButton` / `CheckBox` 支持 `choices`；附件列上传限制固定；数字 / 公式列不可设存储精度（用 `displayPrecision`）；`precision` 仅日期时间列可用。
-- **改列不换 identity**：改选项文案用 `update_choices.update`（保留 api_code）；删列 / 删选项前先确认有无数据，删了不可恢复。
+- **参数以 MCP 为准**：工具参数、取值以 MCP 自带的工具描述为准；某类列能设哪些属性，调 `get_schema("<Type>ColumnInput")` 查，不要猜。
+- **列约束**：仅 `RadioButton` / `CheckBox` 支持 `choices`；附件列不接受数量 / 大小限制；数字 / 公式列的小数位用 `display_precision`，不能用 `precision`；公式、编号、查找引用、汇总列只读。
+- **改列不换 identity**：改选项文案用 `update_choices.update`（保留 api_code）；删列 / 删选项前先用 `check_field_data` 查有无数据，删了不可恢复。
 - **不可逆操作先确认**：批量更新（`patch_entries`）、删除行前，向用户复述影响范围（哪张表、多少行、什么条件）并取得确认后再执行。
 - **分页用游标**：翻页统一走响应里的 `next`，不要臆造偏移。
 - **Scope / 未开通报错处理**：报 `Insufficient scope: <name> required` 或未开通新版表格时，说明缺什么、如何补，不要反复重试。
@@ -48,9 +49,9 @@ maxTurns: 100
 3. **执行**：
    - 建表 → `create_table`（列类型见技能参考）。
    - 加/改列 → `edit_table`，`fields.add` / `fields.remove`(传 api_code) / `fields.update` / `update_choices`。
-   - 查行 → `list_entries` 带 `filter` 下推过滤（用表 token 作 `form_token`）。
+   - 查行 → `list_entries` 带 `filters` 下推过滤（用表 token 作 `form_token`）；要统计用 `count_entries` / `aggregate_entries`。
    - 写/改行 → `create_entry` / `create_entries` / `update_entry` / `patch_entries`，值按列 api_code 组织。
-   - 带附件 → 先 `prepare_entry_attachment_upload` 换凭证上传，再把引用写入附件列。
+   - 带附件 → 先 `prepare_entry_attachment_upload` 拿上传链接上传，再把返回的 `attachment_id` 写入附件列。
 4. **复核回报**：执行后向用户简要回报结果（表名、影响行数等），必要时给出下一步建议。
 
 ## 输出规范
